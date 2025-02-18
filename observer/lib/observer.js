@@ -135,9 +135,9 @@ export const observeYesterdayDesktopUsers = async (pgPoolStats, influxQueryApi) 
   // TODO: Replace with Flux boundaries.yesterday() once it becomes part of stable API
   const yesterday = getYesterdayBoundaries()
   const rows = await influxQueryApi.collectRows(`
-    from(bucket: "station-machines")
+    from(bucket: "station")
       |> range(start: ${yesterday.start}, stop: ${yesterday.stop})
-      |> filter(fn: (r) => r._measurement == "machine" and exists r.platform)
+      |> filter(fn: (r) => r._measurement == "ping" and r.deployment_type == "station-desktop" and exists r.platform)
       |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
       |> map(fn: (r) => ({_time: r._time, station_id: r.station_id, platform: r.platform}))
       |> group()
