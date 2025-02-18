@@ -188,7 +188,7 @@ export const fetchDailyDesktopUsers = async (pgPool, filter) => {
       days[day] = {
         day,
         total: 0,
-        platform_breakdown: []
+        platforms: []
       }
     }
 
