@@ -500,8 +500,8 @@ describe('Platform Routes HTTP request handler', () => {
       await assertResponseStatus(res, 200)
       const daily = await res.json()
       assert.deepStrictEqual(daily, [
-        { day: '2000-01-01', total: 30, platform_breakdown: [{ platform: 'darwin', total: 10 }, { platform: 'linux', total: 10 }, { platform: 'win32', total: 10 }] },
-        { day: '2000-01-03', total: 20, platform_breakdown: [{ platform: 'darwin', total: 5 }, { platform: 'linux', total: 5 }, { platform: 'win32', total: 10 }] }
+        { day: '2000-01-01', total: 30, platforms: [{ platform: 'darwin', total: 10 }, { platform: 'linux', total: 10 }, { platform: 'win32', total: 10 }] },
+        { day: '2000-01-03', total: 20, platforms: [{ platform: 'darwin', total: 5 }, { platform: 'linux', total: 5 }, { platform: 'win32', total: 10 }] }
       ])
     })
   })

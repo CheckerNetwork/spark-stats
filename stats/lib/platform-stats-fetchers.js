@@ -195,7 +195,7 @@ export const fetchDailyDesktopUsers = async (pgPool, filter) => {
     if (platform === null) {
       days[day].total += total
     } else {
-      days[day].platform_breakdown.push({ platform, total })
+      days[day].platforms.push({ platform, total })
     }
   }
 
