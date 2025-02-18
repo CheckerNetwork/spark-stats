@@ -137,25 +137,22 @@ export const observeYesterdayDesktopUsers = async (pgPoolStats, influxQueryApi) 
   const rows = await influxQueryApi.collectRows(`
     from(bucket: "station")
       |> range(start: ${yesterday.start}, stop: ${yesterday.stop})
-      |> filter(fn: (r) => r._measurement == "ping" and r.deployment_type == "station-desktop" and exists r.platform)
+      |> filter(fn: (r) => r._measurement == "ping" and r.deployment_type == "station-desktop")
       |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-      |> map(fn: (r) => ({_time: r._time, station_id: r.station_id, platform: r.platform}))
       |> group()
       |> unique(column: "station_id")
-      |> group(columns: ["platform"])
       |> count(column: "station_id")
-      |> rename(columns: {station_id: "platform_count"})
+      |> rename(columns: {station_id: "count"})
       |> group()
   `)
+
+  const count = rows.reduce((acc, v) => acc + v.count, 0)
   await pgPoolStats.query(`
     INSERT INTO daily_desktop_users
-    (day, platform, user_count)
-    VALUES (NOW() - INTERVAL '1 day', UNNEST($1::TEXT[]), UNNEST($2::INT[]))
-    ON CONFLICT (day, platform) DO UPDATE SET user_count = EXCLUDED.user_count
-  `, [
-    rows.map(row => row.platform),
-    rows.map(row => row.platform_count)
-  ])
+    (day, user_count)
+    VALUES (NOW() - INTERVAL '1 day', $1)
+    ON CONFLICT (day) DO UPDATE SET user_count = EXCLUDED.user_count
+  `, [count])
 }
 
 /**

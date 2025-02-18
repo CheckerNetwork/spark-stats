@@ -217,21 +217,33 @@ describe('observer', () => {
     it('observes desktop users count', async () => {
       await observeYesterdayDesktopUsers(pgPools.stats, {
         collectRows: async () => [
-          { platform: 'win32', platform_count: 10 },
-          { platform: 'darwin', platform_count: 5 },
-          { platform: 'linux', platform_count: 3 }
+          { count: 18 }
         ]
       })
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, platform, user_count
+        SELECT day::TEXT, user_count
         FROM daily_desktop_users
         ORDER BY user_count DESC
       `)
       assert.deepStrictEqual(rows, [
-        { day: yesterday(), platform: 'win32', user_count: 10 },
-        { day: yesterday(), platform: 'darwin', user_count: 5 },
-        { day: yesterday(), platform: 'linux', user_count: 3 }
+        { day: yesterday(), user_count: 18 }
+      ])
+
+      await observeYesterdayDesktopUsers(pgPools.stats, {
+        collectRows: async () => [
+          { count: 25 },
+          { count: 11 }
+        ]
+      })
+
+      const { rows: updatedRows } = await pgPools.stats.query(`
+        SELECT day::TEXT, user_count
+        FROM daily_desktop_users
+        ORDER BY user_count DESC
+      `)
+      assert.deepStrictEqual(updatedRows, [
+        { day: yesterday(), user_count: 36 }
       ])
     })
   })
