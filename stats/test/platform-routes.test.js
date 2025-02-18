@@ -4,7 +4,7 @@ import { getPgPools } from '@filecoin-station/spark-stats-db'
 import { assertResponseStatus } from './test-helpers.js'
 import { createApp } from '../lib/app.js'
 import { getLocalDayAsISOString, today, yesterday } from '../lib/request-helpers.js'
-import { givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
+import { givenDailyDesktopUsers, givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 describe('Platform Routes HTTP request handler', () => {
   /** @type {import('@filecoin-station/spark-stats-db').PgPools} */
@@ -46,6 +46,8 @@ describe('Platform Routes HTTP request handler', () => {
 
     await pgPools.stats.query('DELETE FROM daily_reward_transfers')
     await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
+
+    await pgPools.stats.query('DELETE FROM daily_desktop_users')
   })
 
   describe('GET /stations/daily', () => {
@@ -435,6 +437,72 @@ describe('Platform Routes HTTP request handler', () => {
         res.headers.get('cache-control'),
         'public, max-age=31536000, immutable'
       )
+    })
+  })
+
+  describe('GET /stations/desktop/daily', () => {
+    it('counts daily desktop users', async () => {
+      // out of range
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '1999-01-01',
+        'win32',
+        10
+      )
+      // in range
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '2000-01-01',
+        'win32',
+        10
+      )
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '2000-01-01',
+        'darwin',
+        10
+      )
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '2000-01-01',
+        'linux',
+        10
+      )
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '2000-01-03',
+        'win32',
+        10
+      )
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '2000-01-03',
+        'darwin',
+        5
+      )
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '2000-01-03',
+        'linux',
+        5
+      )
+      // out of range
+      await givenDailyDesktopUsers(
+        pgPools.stats,
+        '2000-01-04',
+        'win32',
+        10
+      )
+
+      const res = await fetch(
+        new URL('/stations/desktop/daily?from=2000-01-01&to=2000-01-03', baseUrl)
+      )
+      await assertResponseStatus(res, 200)
+      const daily = await res.json()
+      assert.deepStrictEqual(daily, [
+        { day: '2000-01-01', total: 30, platform_breakdown: [{ platform: 'darwin', total: 10 }, { platform: 'linux', total: 10 }, { platform: 'win32', total: 10 }] },
+        { day: '2000-01-03', total: 20, platform_breakdown: [{ platform: 'darwin', total: 5 }, { platform: 'linux', total: 5 }, { platform: 'win32', total: 10 }] }
+      ])
     })
   })
 })

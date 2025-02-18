@@ -6,7 +6,8 @@ import {
   fetchParticipantsWithTopMeasurements,
   fetchDailyStationMeasurementCounts,
   fetchParticipantsSummary,
-  fetchAccumulativeDailyParticipantCount
+  fetchAccumulativeDailyParticipantCount,
+  fetchDailyDesktopUsers
 } from './platform-stats-fetchers.js'
 
 import { filterPreHandlerHook, filterOnSendHook } from './request-helpers.js'
@@ -23,6 +24,9 @@ export const addPlatformRoutes = (app, pgPools) => {
     })
     app.get('/stations/monthly', async (/** @type {RequestWithFilter} */ request, reply) => {
       reply.send(await fetchMonthlyStationCount(pgPools.evaluate, request.filter))
+    })
+    app.get('/stations/desktop/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
+      reply.send(await fetchDailyDesktopUsers(pgPools.stats, request.filter))
     })
     app.get('/measurements/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
       reply.send(await fetchDailyStationMeasurementCounts(pgPools.evaluate, request.filter))

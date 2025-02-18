@@ -16,3 +16,21 @@ export const givenDailyParticipants = async (pgPool, day, participantAddresses) 
     Array.from(ids.values())
   ])
 }
+
+/**
+ * @param {import('./typings.js').Queryable} pgPool
+ * @param {string} day
+ * @param {string} platform
+ * @param {number} count
+ */
+export const givenDailyDesktopUsers = async (pgPool, day, platform, count) => {
+  await pgPool.query(`
+    INSERT INTO daily_desktop_users (day, platform, user_count)
+    VALUES ($1, $2, $3)
+    ON CONFLICT DO NOTHING
+  `, [
+    day,
+    platform,
+    count
+  ])
+}

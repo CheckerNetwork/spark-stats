@@ -164,3 +164,40 @@ export const fetchParticipantsSummary = async (pgPool) => {
     participant_count: Number(rows[0].count)
   }
 }
+
+/**
+ * @param {Queryable} pgPool
+ * @param {import('./typings.js').DateRangeFilter} filter
+ */
+export const fetchDailyDesktopUsers = async (pgPool, filter) => {
+  const { rows } = await pgPool.query(`
+    SELECT 
+      day::TEXT, 
+      platform, 
+      SUM(user_count)::INT AS total
+    FROM daily_desktop_users
+    WHERE day >= $1 AND day <= $2
+    GROUP BY GROUPING SETS ((day, platform), (day))
+    ORDER BY day, platform NULLS LAST;`,
+  [filter.from, filter.to])
+
+  const days = {}
+  for (const row of rows) {
+    const { day, total, platform } = row
+    if (!days[day]) {
+      days[day] = {
+        day,
+        total: 0,
+        platform_breakdown: []
+      }
+    }
+
+    if (platform === null) {
+      days[day].total += total
+    } else {
+      days[day].platform_breakdown.push({ platform, total })
+    }
+  }
+
+  return Object.values(days)
+}
