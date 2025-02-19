@@ -164,3 +164,20 @@ export const fetchParticipantsSummary = async (pgPool) => {
     participant_count: Number(rows[0].count)
   }
 }
+
+/**
+ * @param {Queryable} pgPool
+ * @param {import('./typings.js').DateRangeFilter} filter
+ */
+export const fetchDailyDesktopUsers = async (pgPool, filter) => {
+  const { rows } = await pgPool.query(`
+    SELECT
+      day::TEXT,
+      user_count::INT
+    FROM daily_desktop_users
+    WHERE day >= $1 AND day <= $2
+    ORDER BY day`,
+  [filter.from, filter.to])
+
+  return rows
+}
