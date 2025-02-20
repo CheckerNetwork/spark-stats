@@ -173,7 +173,7 @@ export const fetchDailyDesktopUsers = async (pgPool, filter) => {
   const { rows } = await pgPool.query(`
     SELECT
       day::TEXT,
-      user_count::INT
+      user_count
     FROM daily_desktop_users
     WHERE day >= $1 AND day <= $2
     ORDER BY day`,
