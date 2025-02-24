@@ -40,9 +40,9 @@ Base URL: http://stats.filspark.com/
 
   http://stats.filspark.com/client/f0215074/deals/eligible/summary
 
-- `GET /client/retrieval-success-rate/summary?from=<day>&to=<day>`
+- `GET /clients/retrieval-success-rate/summary?from=<day>&to=<day>`
 
-  http://stats.filspark.com/client/retrieval-success-rate/summary
+  http://stats.filspark.com/clients/retrieval-success-rate/summary
 
 
 - `GET /client/:id/retrieval-success-rate/summary?from=<day>&to=<day>`
