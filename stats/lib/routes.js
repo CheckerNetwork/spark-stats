@@ -13,12 +13,15 @@ import {
   fetchDailyMinerRSRSummary,
   fetchDailyRetrievalTimings,
   fetchDailyMinerRetrievalTimings,
-  fetchMinersTimingsSummary
+  fetchMinersTimingsSummary,
+  fetchDailyClientRSRSummary,
+  fetchClientsRSRSummary
 } from './stats-fetchers.js'
 
 /** @typedef {import('./typings.js').RequestWithFilter} RequestWithFilter */
 /** @typedef {import('./typings.js').RequestWithFilterAndAddress} RequestWithFilterAndAddress */
 /** @typedef {import('./typings.js').RequestWithFilterAndMinerId} RequestWithFilterAndMinerId */
+/** @typedef {import('./typings.js').RequestWithFilterAndClientId} RequestWithFilterAndClientId */
 
 export const addRoutes = (app, pgPools, SPARK_API_BASE_URL) => {
   app.register(async app => {
@@ -66,6 +69,12 @@ export const addRoutes = (app, pgPools, SPARK_API_BASE_URL) => {
     })
     app.get('/miner/:minerId/retrieval-success-rate/summary', async (/** @type {RequestWithFilterAndMinerId} */ request, reply) => {
       reply.send(await fetchDailyMinerRSRSummary(pgPools, request.filter, request.params.minerId))
+    })
+    app.get('/client/retrieval-success-rate/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
+      reply.send(await fetchClientsRSRSummary(pgPools, request.filter))
+    })
+    app.get('/client/:clientId/retrieval-success-rate/summary', async (/** @type {RequestWithFilterAndClientId} */ request, reply) => {
+      reply.send(await fetchDailyClientRSRSummary(pgPools, request.filter, request.params.clientId))
     })
   })
 

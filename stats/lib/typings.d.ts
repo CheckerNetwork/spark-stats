@@ -14,6 +14,9 @@ export type RequestWithFilterAndAddress = RequestWithFilter<{
 export type RequestWithFilterAndMinerId = RequestWithFilter<{
   Parameters: { minerId: string }
 }>
+export type RequestWithFilterAndClientId = RequestWithFilter<{
+  Parameters: { clientId: string }
+}>
 
 declare module 'fastify' {
   export interface FastifyRequest {
