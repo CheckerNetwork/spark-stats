@@ -395,7 +395,7 @@ describe('HTTP request handler', () => {
   })
 
   describe('GET /participant/:address/reward-transfers', () => {
-    it('returns daily reward trainsfers for the given date range', async () => {
+    it('returns daily reward transfers for the given date range', async () => {
       await pgPools.stats.query(`
         INSERT INTO daily_reward_transfers
         (day, to_address, amount, last_checked_block)
