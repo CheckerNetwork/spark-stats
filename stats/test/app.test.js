@@ -865,6 +865,25 @@ describe('HTTP request handler', () => {
           { client_id: 'f1twoClient', success_rate: 0.75, total: '200', successful: '150', successful_http: '100', success_rate_http: 100 / 200 }
         ])
       })
+      it('handles total value being smaller or equal to 0', async () => {
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-11', clientId: 'f1oneClient', total: 0, successful: 0, successfulHttp: 0 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-11', clientId: 'f2twoClient', total: -1, successful: 0, successfulHttp: 0 })
+
+        const res = await fetch(
+          new URL(
+            'clients/retrieval-success-rate/summary?from=2024-01-11&to=2024-01-11',
+            baseUrl
+          ), {
+            redirect: 'manual'
+          }
+        )
+        await assertResponseStatus(res, 200)
+        const stats = await res.json()
+        assert.deepStrictEqual(stats, [
+          { client_id: 'f1oneClient', success_rate: null, total: '0', successful: '0', successful_http: '0', success_rate_http: null },
+          { client_id: 'f2twoClient', success_rate: null, total: '-1', successful: '0', successful_http: '0', success_rate_http: null }
+        ])
+      })
     })
     describe('GET /client/{id}/retrieval-success-rate/summary', () => {
       beforeEach(async () => {

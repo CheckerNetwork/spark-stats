@@ -1,3 +1,4 @@
+import assert from 'node:assert'
 /** @typedef {import('@filecoin-station/spark-stats-db').PgPools} PgPools */
 /**
  * @param {PgPools} pgPools
@@ -376,15 +377,21 @@ export const fetchClientsRSRSummary = async (pgPools, filter) => {
     filter.from,
     filter.to
   ])
-  const stats = rows.map(r => ({
-    client_id: r.client_id,
-    total: r.total,
-    successful: r.successful,
-    success_rate: r.total > 0 ? r.successful / r.total : null,
-    successful_http: r.successful_http ?? null,
-    // successful_http might be null because the column was added later
-    success_rate_http: r.total > 0 && r.successful_http !== null ? r.successful_http / r.total : null
-  }))
+  const stats = rows.map(r => {
+    // All values are configured to be NOT NULL on the database level
+    assert.ok(r.successful !== null, 'successful should not be null')
+    assert.ok(r.total !== null, 'total should not be null')
+    assert.ok(r.successful_http !== null, 'successful_http should not be null')
+    return {
+      client_id: r.client_id,
+      total: r.total,
+      successful: r.successful,
+      success_rate: r.total > 0 ? r.successful / r.total : null,
+      successful_http: r.successful_http,
+      // successful_http might be null because the column was added later
+      success_rate_http: r.total > 0 ? r.successful_http / r.total : null
+    }
+  })
   return stats
 }
 
@@ -409,14 +416,20 @@ export const fetchDailyClientRSRSummary = async (pgPools, { from, to }, clientId
     from,
     to
   ])
-  const stats = rows.map(r => ({
-    day: r.day,
-    total: r.total,
-    successful: r.successful,
-    success_rate: r.total > 0 ? r.successful / r.total : null,
-    successful_http: r.successful_http ?? null,
-    // successful_http might be null because the column was added later
-    success_rate_http: r.total > 0 && r.successful_http !== null ? r.successful_http / r.total : null
-  }))
+  const stats = rows.map(r => {
+    // All values are configured to be NOT NULL on the database level
+    assert.ok(r.successful !== null, 'successful should not be null')
+    assert.ok(r.total !== null, 'total should not be null')
+    assert.ok(r.successful_http !== null, 'successful_http should not be null')
+    return {
+      day: r.day,
+      total: r.total,
+      successful: r.successful,
+      success_rate: r.total > 0 ? r.successful / r.total : null,
+      successful_http: r.successful_http,
+      // successful_http might be null because the column was added later
+      success_rate_http: r.total > 0 ? r.successful_http / r.total : null
+    }
+  })
   return stats
 }
