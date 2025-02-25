@@ -359,7 +359,7 @@ export const fetchMinersTimingsSummary = async (pgPools, { from, to }) => {
 }
 
 /**
- * Fetches the retrieval stats summary for all miners for given date range.
+ * Fetches the retrieval stats summary for all clients for given date range.
  * @param {PgPools} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
@@ -388,7 +388,6 @@ export const fetchClientsRSRSummary = async (pgPools, filter) => {
       successful: r.successful,
       success_rate: r.total > 0 ? r.successful / r.total : null,
       successful_http: r.successful_http,
-      // successful_http might be null because the column was added later
       success_rate_http: r.total > 0 ? r.successful_http / r.total : null
     }
   })
@@ -427,7 +426,6 @@ export const fetchDailyClientRSRSummary = async (pgPools, { from, to }, clientId
       successful: r.successful,
       success_rate: r.total > 0 ? r.successful / r.total : null,
       successful_http: r.successful_http,
-      // successful_http might be null because the column was added later
       success_rate_http: r.total > 0 ? r.successful_http / r.total : null
     }
   })
