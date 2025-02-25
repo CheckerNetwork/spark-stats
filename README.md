@@ -40,6 +40,16 @@ Base URL: http://stats.filspark.com/
 
   http://stats.filspark.com/client/f0215074/deals/eligible/summary
 
+- `GET /clients/retrieval-success-rate/summary?from=<day>&to=<day>`
+
+  http://stats.filspark.com/clients/retrieval-success-rate/summary
+
+
+- `GET /client/:id/retrieval-success-rate/summary?from=<day>&to=<day>`
+
+  http://stats.filspark.com/client/f0215074/retrieval-success-rate/summary
+
+
 - `GET /allocator/:id/deals/eligible/summary`
 
   http://stats.filspark.com/allocator/f03015751/deals/eligible/summary

@@ -356,3 +356,69 @@ export const fetchMinersTimingsSummary = async (pgPools, { from, to }) => {
   ])
   return rows
 }
+
+/**
+ * Fetches the retrieval stats summary for all clients for given date range.
+ * @param {PgPools} pgPools
+ * @param {import('./typings.js').DateRangeFilter} filter
+ */
+export const fetchClientsRSRSummary = async (pgPools, filter) => {
+  const { rows } = await pgPools.evaluate.query(`
+    SELECT 
+    client_id, 
+    SUM(total) as total, 
+    SUM(successful) as successful, 
+    SUM(successful_http) as successful_http
+    FROM daily_client_retrieval_stats
+    WHERE day >= $1 AND day <= $2
+    GROUP BY client_id
+   `, [
+    filter.from,
+    filter.to
+  ])
+  const stats = rows.map(r => {
+    return {
+      client_id: r.client_id,
+      total: r.total,
+      successful: r.successful,
+      success_rate: r.total > 0 ? r.successful / r.total : null,
+      successful_http: r.successful_http,
+      success_rate_http: r.total > 0 ? r.successful_http / r.total : null
+    }
+  })
+  return stats
+}
+
+/**
+ * Fetches the retrieval stats summary for a single client for given date range.
+ * @param {PgPools} pgPools
+ * @param {import('./typings.js').DateRangeFilter} filter
+ * @param {string} clientId
+ */
+export const fetchDailyClientRSRSummary = async (pgPools, { from, to }, clientId) => {
+  const { rows } = await pgPools.evaluate.query(`
+    SELECT 
+    day::TEXT, 
+    SUM(total) as total, SUM(successful) as successful, 
+    SUM(successful_http) as successful_http
+    FROM daily_client_retrieval_stats
+    WHERE client_id = $1 AND day >= $2 AND day <= $3
+    GROUP BY day
+    ORDER BY day
+   `, [
+    clientId,
+    from,
+    to
+  ])
+  const stats = rows.map(r => {
+    return {
+      day: r.day,
+      total: r.total,
+      successful: r.successful,
+      success_rate: r.total > 0 ? r.successful / r.total : null,
+      successful_http: r.successful_http,
+      success_rate_http: r.total > 0 ? r.successful_http / r.total : null
+    }
+  })
+  return stats
+}
