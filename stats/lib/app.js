@@ -25,7 +25,12 @@ export const createApp = ({
   Sentry.setupFastifyErrorHandler(app)
 
   app.register(cors, {
-    origin: ['http://localhost:3000', 'app://-']
+    origin: [
+      'http://localhost:3000',
+      'app://-',
+      'https://checker-draft.webflow.io',
+      'https://checker.network'
+    ]
   })
   app.register(urlData)
   addRoutes(app, pgPools, SPARK_API_BASE_URL)
