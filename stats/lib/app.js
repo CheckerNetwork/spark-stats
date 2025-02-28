@@ -29,7 +29,8 @@ export const createApp = ({
       'http://localhost:3000',
       'app://-',
       'https://checker-draft.webflow.io',
-      'https://checker.network'
+      'https://checker.network',
+      'https://www.checker.network' // FIXME: We shouldn't mix www and non-www
     ]
   })
   app.register(urlData)
