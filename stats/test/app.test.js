@@ -395,7 +395,7 @@ describe('HTTP request handler', () => {
   })
 
   describe('GET /participant/:address/reward-transfers', () => {
-    it('returns daily reward trainsfers for the given date range', async () => {
+    it('returns daily reward transfers for the given date range', async () => {
       await pgPools.stats.query(`
         INSERT INTO daily_reward_transfers
         (day, to_address, amount, last_checked_block)
@@ -835,6 +835,92 @@ describe('HTTP request handler', () => {
         { miner_id: 'f1two', ttfb_ms: 789 }
       ])
     })
+    describe('GET /clients/retrieval-success-rate/summary', () => {
+      beforeEach(async () => {
+        await pgPools.evaluate.query('DELETE FROM daily_client_retrieval_stats')
+      })
+      it('returns a summary of clients RSR for the given date range', async () => {
+        // before the range
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-10', clientId: 'f1oneClient', total: 10, successful: 1, successfulHttp: 1 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-10', clientId: 'f1twoClient', total: 100, successful: 20, successfulHttp: 10 })
+        // in the range
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-11', clientId: 'f1oneClient', total: 20, successful: 1, successfulHttp: 0 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-11', clientId: 'f1twoClient', total: 200, successful: 150, successfulHttp: 100 })
+        // after the range
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-12', clientId: 'f1oneClient', total: 30, successful: 1, successfulHttp: 1 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-12', clientId: 'f1twoClient', total: 300, successful: 60, successfulHttp: 60 })
+
+        const res = await fetch(
+          new URL(
+            '/clients/retrieval-success-rate/summary?from=2024-01-11&to=2024-01-11',
+            baseUrl
+          ), {
+            redirect: 'manual'
+          }
+        )
+        await assertResponseStatus(res, 200)
+        const stats = await res.json()
+        assert.deepStrictEqual(stats, [
+          { client_id: 'f1oneClient', success_rate: 0.05, total: '20', successful: '1', successful_http: '0', success_rate_http: 0 },
+          { client_id: 'f1twoClient', success_rate: 0.75, total: '200', successful: '150', successful_http: '100', success_rate_http: 100 / 200 }
+        ])
+      })
+      it('handles total value being smaller or equal to 0', async () => {
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-11', clientId: 'f1oneClient', total: 0, successful: 0, successfulHttp: 0 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-11', clientId: 'f2twoClient', total: -1, successful: 0, successfulHttp: 0 })
+
+        const res = await fetch(
+          new URL(
+            'clients/retrieval-success-rate/summary?from=2024-01-11&to=2024-01-11',
+            baseUrl
+          ), {
+            redirect: 'manual'
+          }
+        )
+        await assertResponseStatus(res, 200)
+        const stats = await res.json()
+        assert.deepStrictEqual(stats, [
+          { client_id: 'f1oneClient', success_rate: null, total: '0', successful: '0', successful_http: '0', success_rate_http: null },
+          { client_id: 'f2twoClient', success_rate: null, total: '-1', successful: '0', successful_http: '0', success_rate_http: null }
+        ])
+      })
+    })
+    describe('GET /client/{id}/retrieval-success-rate/summary', () => {
+      beforeEach(async () => {
+        await pgPools.evaluate.query('DELETE FROM daily_client_retrieval_stats')
+      })
+      it('lists daily retrieval stats summary for specified client in given date range', async () => {
+        // before the range
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-09', clientId: 'f1oneClient', total: 10, successful: 1, successfulHttp: 1 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-09', clientId: 'f1twoClient', total: 100, successful: 20, successfulHttp: 10 })
+        // in the range
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-20', clientId: 'f1oneClient', total: 20, successful: 1, successfulHttp: 0 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-20', clientId: 'f1twoClient', total: 200, successful: 60, successfulHttp: 50 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-10', clientId: 'f1oneClient', total: 10, successful: 1, successfulHttp: 1 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-10', clientId: 'f1twoClient', total: 100, successful: 50, successfulHttp: 35 })
+        // after the range
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-21', clientId: 'f1oneClient', total: 30, successful: 1, successfulHttp: 1 })
+        await givenClientRetrievalStats(pgPools.evaluate, { day: '2024-01-21', clientId: 'f1twoClient', total: 300, successful: 60, successfulHttp: 60 })
+
+        const res = await fetch(
+          new URL(
+            '/client/f1oneClient/retrieval-success-rate/summary?from=2024-01-10&to=2024-01-20',
+            baseUrl
+          ), {
+            redirect: 'manual'
+          }
+        )
+        await assertResponseStatus(res, 200)
+
+        const stats = /** @type {{ day: string, success_rate: number }[]} */(
+          await res.json()
+        )
+        assert.deepStrictEqual(stats, [
+          { day: '2024-01-10', success_rate: 1 / 10, total: '10', successful: '1', successful_http: '1', success_rate_http: 1 / 10 },
+          { day: '2024-01-20', success_rate: 1 / 20, total: '20', successful: '1', successful_http: '0', success_rate_http: 0 }
+        ])
+      })
+    })
   })
 })
 
@@ -853,6 +939,23 @@ const givenRetrievalStats = async (pgPool, { day, minerId, total, successful, su
   await pgPool.query(
     'INSERT INTO retrieval_stats (day, miner_id, total, successful, successful_http, successful_http_head) VALUES ($1, $2, $3, $4, $5, $6)',
     [day, minerId ?? 'f1test', total, successful, successfulHttp, successfulHttpHead]
+  )
+}
+
+/**
+ *
+ * @param {import('../lib/platform-stats-fetchers.js').Queryable} pgPool
+ * @param {object} data
+ * @param {string} data.day
+ * @param {string} [data.clientId]
+ * @param {number | bigint} data.total
+ * @param {number | bigint } data.successful
+ * @param {number | bigint} [data.successfulHttp]
+ */
+const givenClientRetrievalStats = async (pgPool, { day, clientId, total, successful, successfulHttp }) => {
+  await pgPool.query(
+    'INSERT INTO daily_client_retrieval_stats (day, client_id, total, successful, successful_http) VALUES ($1, $2, $3, $4, $5)',
+    [day, clientId ?? 'f1ClientTest', total, successful, successfulHttp]
   )
 }
 
