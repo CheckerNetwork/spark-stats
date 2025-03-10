@@ -14,7 +14,9 @@
   "dependencies": {
     "@filecoin-station/spark-evaluate": "^1.2.0",
     "pg": "^8.13.3",
-    "postgrator": "^8.0.0"
+    "postgrator": "^8.0.0",
+    "@fastify/postgres": "^5.2.0",
+    "@fastify/url-data": "^6.0.3"
   },
   "standard": {
     "env": [
