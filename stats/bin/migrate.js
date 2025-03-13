@@ -1,8 +1,7 @@
-import Fastify from 'fastify'
-import fastifyPostgres from '@fastify/postgres'
 import {
   migrateEvaluateDB,
-  migrateStatsDB
+  migrateStatsDB,
+  getPgPools
 } from '@filecoin-station/spark-stats-db'
 
 const {
@@ -10,29 +9,20 @@ const {
   EVALUATE_DB_URL
 } = process.env
 
-const app = Fastify({ logger: false })
-
-await app.register(fastifyPostgres, {
-  connectionString: DATABASE_URL,
-  name: 'stats'
-})
-
-await app.register(fastifyPostgres, {
-  connectionString: EVALUATE_DB_URL,
-  name: 'evaluate'
-})
-
 try {
   console.log('Running migrations for stats database...')
-  await migrateStatsDB(app.pg.stats)
+  const pgPools = await getPgPools()
   
-  console.log('Running migrations for evaluate database...')
-  await migrateEvaluateDB(app.pg.evaluate)
+  // @ts-ignore - PgPoolStats actually does have a query method at runtime
+  await migrateStatsDB(pgPools.stats)
+  
+  // @ts-ignore - Similarly for evaluate
+  await migrateEvaluateDB(pgPools.evaluate)
+  
+  await pgPools.end()
   
   console.log('All migrations completed successfully')
 } catch (error) {
   console.error('Migration failed:', error)
   process.exit(1)
-} finally {
-  await app.close()
 }

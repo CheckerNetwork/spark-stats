@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/node'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import urlData from '@fastify/url-data'
+import fastifyPostgres from '@fastify/postgres'
 
 import { addRoutes } from './routes.js'
 import { addPlatformRoutes } from './platform-routes.js'
@@ -12,17 +13,37 @@ import { addPlatformRoutes } from './platform-routes.js'
 /**
  * @param {object} args
  * @param {string} args.SPARK_API_BASE_URL
- * @param {import('@filecoin-station/spark-stats-db').PgPools} args.pgPools
- * @param {Fastify.FastifyLoggerOptions} args.logger
- * @returns
+ * @param {string} args.DATABASE_URL - Connection string for stats database
+ * @param {string} args.EVALUATE_DB_URL - Connection string for evaluate database
+ * @param {import('fastify').FastifyLoggerOptions} args.logger
+ * @returns {Promise<import('fastify').FastifyInstance>}
  */
-export const createApp = ({
+export const createApp = async ({
   SPARK_API_BASE_URL,
-  pgPools,
+  DATABASE_URL,
+  EVALUATE_DB_URL,
   logger
 }) => {
   const app = Fastify({ logger })
   Sentry.setupFastifyErrorHandler(app)
+
+  await app.register(fastifyPostgres, {
+    connectionString: DATABASE_URL,
+    name: 'stats'
+  })
+
+  await app.register(fastifyPostgres, {
+    connectionString: EVALUATE_DB_URL,
+    name: 'evaluate',
+  })
+
+  const pgPools = {
+    stats: app.pg.stats,
+    evaluate: app.pg.evaluate,
+    async end() {
+      await app.close()
+    }
+  }
 
   app.register(cors, {
     origin: [
