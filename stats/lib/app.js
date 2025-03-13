@@ -31,6 +31,7 @@ export const createApp = ({
       'https://checker-draft.webflow.io',
       'https://www.checker.network',
       'https://leaderboard-f1i.pages.dev',
+      /^https:\/\/[^.]+\.leaderboard-f1i\.pages\.dev$/,
       'https://leaderboard.checker.network'
     ]
   })
