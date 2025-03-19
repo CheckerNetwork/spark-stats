@@ -21,6 +21,6 @@ const app = await createApp({
 })
 
 console.log('Starting the http server on host %j port %s', HOST, PORT)
-await app.listen({ port: Number(PORT), host: HOST })
-console.log(`Server listening at ${HOST}:${PORT}`)
+const baseUrl = app.listen({ port: Number(PORT), host: HOST })
+console.log(baseUrl)
 

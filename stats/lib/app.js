@@ -7,7 +7,6 @@ import fastifyPostgres from '@fastify/postgres'
 import { addRoutes } from './routes.js'
 import { addPlatformRoutes } from './platform-routes.js'
 
-/** @typedef {import('@filecoin-station/spark-stats-db').PgPools} PgPools */
 /** @typedef {import('./typings.js').DateRangeFilter} DateRangeFilter */
 
 /**
@@ -18,6 +17,7 @@ import { addPlatformRoutes } from './platform-routes.js'
  * @param {import('fastify').FastifyLoggerOptions} args.logger
  * @returns {Promise<import('fastify').FastifyInstance>}
  */
+
 export const createApp = async ({
   SPARK_API_BASE_URL,
   DATABASE_URL,
@@ -37,14 +37,6 @@ export const createApp = async ({
     name: 'evaluate',
   })
 
-  const pgPools = {
-    stats: app.pg.stats,
-    evaluate: app.pg.evaluate,
-    async end() {
-      await app.close()
-    }
-  }
-
   app.register(cors, {
     origin: [
       'http://localhost:3000',
@@ -54,11 +46,12 @@ export const createApp = async ({
     ]
   })
   app.register(urlData)
-  addRoutes(app, pgPools, SPARK_API_BASE_URL)
-  addPlatformRoutes(app, pgPools)
+  addRoutes(app, SPARK_API_BASE_URL)
+  addPlatformRoutes(app)
   app.get('/', (request, reply) => {
     reply.send('OK')
   })
 
   return app
 }
+
