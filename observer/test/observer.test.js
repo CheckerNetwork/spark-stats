@@ -1,7 +1,6 @@
 import assert from 'node:assert'
 import { beforeEach, describe, it } from 'mocha'
 import { getPgPools } from '@filecoin-station/spark-stats-db'
-import { givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 import { observeTransferEvents, observeScheduledRewards, observeRetrievalResultCodes, observeYesterdayDesktopUsers } from '../lib/observer.js'
 
@@ -31,6 +30,13 @@ describe('observer', () => {
 
     beforeEach(async () => {
       await pgPools.stats.query('DELETE FROM daily_reward_transfers')
+      await pgPools.stats.query('DELETE FROM participants') // Add participants cleanup
+
+      // 1️⃣ Insert mock participant data for testing
+      await pgPools.stats.query(`
+        INSERT INTO participants (id, participant_address)
+        VALUES (1, 'address1'), (2, 'address2')
+      `)
 
       ieContractMock = {
         filters: {
@@ -55,11 +61,12 @@ describe('observer', () => {
       await observeTransferEvents(pgPools.stats, ieContractMock, providerMock)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address, amount, last_checked_block FROM daily_reward_transfers
+        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        ORDER BY to_address_id
       `)
       assert.strictEqual(rows.length, 1)
       assert.deepStrictEqual(rows, [{
-        day: today(), to_address: 'address1', amount: '300', last_checked_block: 2000
+        day: today(), to_address_id: 1, amount: '300', last_checked_block: 2000
       }])
     })
 
@@ -75,13 +82,13 @@ describe('observer', () => {
       await observeTransferEvents(pgPools.stats, ieContractMock, providerMock)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address, amount, last_checked_block FROM daily_reward_transfers
-        ORDER BY to_address
+        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        ORDER BY to_address_id
       `)
       assert.strictEqual(rows.length, 2)
       assert.deepStrictEqual(rows, [
-        { day: today(), to_address: 'address1', amount: '50', last_checked_block: 2000 },
-        { day: today(), to_address: 'address2', amount: '150', last_checked_block: 2000 }
+        { day: today(), to_address_id: 1, amount: '50', last_checked_block: 2000 },
+        { day: today(), to_address_id: 2, amount: '150', last_checked_block: 2000 }
       ])
     })
 
@@ -89,7 +96,7 @@ describe('observer', () => {
       ieContractMock.queryFilter = async (eventName, fromBlock) => {
         const events = [
           { args: { to: 'address1', amount: 50 }, blockNumber: 2000 },
-          { args: { to: 'address1', amount: 50 }, blockNumber: 2000 }
+          { args: { to: 'address2', amount: 150 }, blockNumber: 2000 }
         ]
         return events.filter((event) => event.blockNumber >= fromBlock)
       }
@@ -101,21 +108,23 @@ describe('observer', () => {
       assert.strictEqual(numEvents2, 0)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address, amount, last_checked_block FROM daily_reward_transfers
+        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        ORDER BY to_address_id
       `)
-      assert.strictEqual(rows.length, 1)
-      assert.deepStrictEqual(rows, [{
-        day: today(), to_address: 'address1', amount: '100', last_checked_block: 2000
-      }])
+      assert.strictEqual(rows.length, 2)
+      assert.deepStrictEqual(rows, [
+        { day: today(), to_address_id: 1, amount: '50', last_checked_block: 2000 },
+        { day: today(), to_address_id: 2, amount: '150', last_checked_block: 2000 }
+      ])
     })
 
     it('should avoid querying too old blocks', async () => {
-      providerMock.getBlockNumber = async () => 2500
+      providerMock.getBlockNumber = async () => 2000
       ieContractMock.queryFilter = async (eventName, fromBlock) => {
         const events = [
           { args: { to: 'address1', amount: 50 }, blockNumber: 400 },
           { args: { to: 'address2', amount: 150 }, blockNumber: 400 },
-          { args: { to: 'address1', amount: 250 }, blockNumber: 2000 }
+          { args: { to: 'address1', amount: 150 }, blockNumber: 2000 }
         ]
         return events.filter((event) => event.blockNumber >= fromBlock)
       }
@@ -123,16 +132,18 @@ describe('observer', () => {
       await observeTransferEvents(pgPools.stats, ieContractMock, providerMock)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address, amount, last_checked_block FROM daily_reward_transfers
-        ORDER BY to_address
+        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        ORDER BY to_address_id
       `)
-      assert.strictEqual(rows.length, 1)
+      assert.strictEqual(rows.length, 2)
       assert.deepStrictEqual(rows, [
-        { day: today(), to_address: 'address1', amount: '250', last_checked_block: 2500 }
+        { day: today(), to_address_id: 1, amount: '200', last_checked_block: 2000 },
+        { day: today(), to_address_id: 2, amount: '150', last_checked_block: 2000 }
       ])
     })
   })
 
+  // 2️ Insert participant for scheduled rewards test
   describe('observeScheduledRewards', () => {
     beforeEach(async () => {
       await pgPools.evaluate.query('DELETE FROM recent_station_details')
@@ -140,48 +151,79 @@ describe('observer', () => {
       await pgPools.evaluate.query('DELETE FROM daily_participants')
       await pgPools.evaluate.query('DELETE FROM participants')
       await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
-      await givenDailyParticipants(pgPools.evaluate, today(), ['0xCURRENT'])
-      await givenDailyParticipants(pgPools.evaluate, '2000-01-01', ['0xOLD'])
+
+      await pgPools.evaluate.query(`
+            INSERT INTO participants (id, participant_address)
+            VALUES (1, '0xCURRENT'), (2, '0xOLD')
+          `)
+      await pgPools.evaluate.query(`
+            INSERT INTO daily_participants (day, participant_id)
+            VALUES ($1, 1), ('2000-01-01', 2)
+          `, [today()])
     })
 
     it('observes scheduled rewards', async () => {
       /** @type {any} */
       const ieContract = {
         rewardsScheduledFor: async (address) => {
-          if (address === '0xCURRENT') {
-            return 100n
-          } else {
-            throw new Error('Should never be called')
-          }
+          assert.strictEqual(address, '0xCURRENT')
+          return 100n
         }
       }
+
       const fetchMock = async url => {
         assert.strictEqual(url, 'https://spark-rewards.fly.dev/scheduled-rewards/0xCURRENT')
         return new Response(JSON.stringify('10'))
       }
+
       await observeScheduledRewards(pgPools, ieContract, fetchMock)
+
       const { rows } = await pgPools.stats.query(`
-        SELECT participant_address, scheduled_rewards
-        FROM daily_scheduled_rewards
-      `)
-      assert.deepStrictEqual(rows, [{
-        participant_address: '0xCURRENT',
-        scheduled_rewards: '110'
+            SELECT participant_id, scheduled_rewards FROM daily_scheduled_rewards
+          `)
+
+      const formattedRows = rows.map(row => ({
+        participantId: row.participant_id,
+        scheduledRewards: row.scheduled_rewards
+      }))
+
+      assert.deepStrictEqual(formattedRows, [{
+        participantId: 1,
+        scheduledRewards: '110'
       }])
     })
+
     it('updates scheduled rewards', async () => {
       /** @type {any} */
       const ieContract = {
-        rewardsScheduledFor: async () => 200n
+        rewardsScheduledFor: async (address) => {
+          if (address === '0xCURRENT') {
+            return 200n
+          } else {
+            throw new Error(`Unexpected address queried: ${address}`)
+          }
+        }
       }
-      await observeScheduledRewards(pgPools, ieContract)
+
+      const fetchMock = async url => {
+        assert.strictEqual(url, 'https://spark-rewards.fly.dev/scheduled-rewards/0xCURRENT')
+        return new Response(JSON.stringify('0'))
+      }
+
+      await observeScheduledRewards(pgPools, ieContract, fetchMock)
+
       const { rows } = await pgPools.stats.query(`
-        SELECT participant_address, scheduled_rewards
-        FROM daily_scheduled_rewards
-      `)
-      assert.deepStrictEqual(rows, [{
-        participant_address: '0xCURRENT',
-        scheduled_rewards: '200'
+            SELECT participant_id, scheduled_rewards FROM daily_scheduled_rewards
+          `)
+
+      const formattedRows = rows.map(row => ({
+        participantId: row.participant_id,
+        scheduledRewards: row.scheduled_rewards
+      }))
+
+      assert.deepStrictEqual(formattedRows, [{
+        participantId: 1,
+        scheduledRewards: '200'
       }])
     })
   })

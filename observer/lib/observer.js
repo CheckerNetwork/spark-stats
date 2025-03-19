@@ -25,11 +25,24 @@ export const observeTransferEvents = async (pgPoolStats, ieContract, provider) =
 
   console.log(`Found ${events.length} Transfer events`)
   for (const event of events.filter(isEventLog)) {
+    // 1️ Replace `toAddress` with `to_address_id` by fetching participant id from the participants table
+    const participantResult = await pgPoolStats.query(
+      'SELECT id FROM participants WHERE participant_address = $1',
+      [event.args.to]
+    )
+    const toAddressId = participantResult.rows[0]?.id
+
+    if (!toAddressId) {
+      console.warn('Participant not found for address:', event.args.to)
+      continue // Skip if participant is not found
+    }
+
     const transferEvent = {
-      toAddress: event.args.to,
+      to_address_id: toAddressId,
       amount: event.args.amount
     }
-    console.log('Transfer event:', transferEvent)
+
+    // 2️ Update call to accommodate `to_address_id`
     await updateDailyTransferStats(pgPoolStats, transferEvent, currentBlockNumber)
   }
 
@@ -59,13 +72,14 @@ const getScheduledRewards = async (address, ieContract, fetch) => {
  */
 export const observeScheduledRewards = async (pgPools, ieContract, fetch = globalThis.fetch) => {
   console.log('Querying scheduled rewards from impact evaluator')
+  // 3️ Fetch participant_id along with address to use in insert
   const { rows } = await pgPools.evaluate.query(`
-    SELECT participant_address
+    SELECT p.id AS participant_id, p.participant_address
     FROM participants p
     JOIN daily_participants d ON p.id = d.participant_id
     WHERE d.day >= now() - interval '3 days'
   `)
-  for (const { participant_address: address } of rows) {
+  for (const { participant_address: address, participant_id: participantId } of rows) {
     let scheduledRewards
     try {
       scheduledRewards = await getScheduledRewards(address, ieContract, fetch)
@@ -79,13 +93,14 @@ export const observeScheduledRewards = async (pgPools, ieContract, fetch = globa
       continue
     }
     console.log('Scheduled rewards for', address, scheduledRewards)
+    // 4️Use participant_id foreign key in insert
     await pgPools.stats.query(`
       INSERT INTO daily_scheduled_rewards
-      (day, participant_address, scheduled_rewards)
+      (day, participant_id, scheduled_rewards)
       VALUES (now(), $1, $2)
-      ON CONFLICT (day, participant_address) DO UPDATE SET
-      scheduled_rewards = EXCLUDED.scheduled_rewards
-    `, [address, scheduledRewards])
+      ON CONFLICT (day, participant_id) DO UPDATE SET
+        scheduled_rewards = EXCLUDED.scheduled_rewards
+    `, [participantId, scheduledRewards])
   }
 }
 
