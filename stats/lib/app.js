@@ -35,6 +35,8 @@ export const createApp = async ({
   await app.register(fastifyPostgres, {
     connectionString: EVALUATE_DB_URL,
     name: 'evaluate',
+    
+    
   })
 
   app.register(cors, {

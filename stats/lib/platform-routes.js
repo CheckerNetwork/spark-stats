@@ -14,20 +14,6 @@ import { filterPreHandlerHook, filterOnSendHook } from './request-helpers.js'
 
 /** @typedef {import('./typings.js').RequestWithFilter} RequestWithFilter */
 
-/**
- * Create an adapter to convert Fastify pg to the expected pgPools format
- * @param {any} pg Fastify pg object
- * @returns {object} pgPools compatible object
- */
-
-function adaptPgPools(pg) {
-  return {
-    stats: pg.stats,
-    evaluate: pg.evaluate,
-    end: async () => {} // Empty implementation
-  };
-}
-
 
 export const addPlatformRoutes = (app) => {
   app.register(async app => {
@@ -50,15 +36,13 @@ export const addPlatformRoutes = (app) => {
       reply.send(await fetchParticipantsWithTopMeasurements(request.server.pg.evaluate, request.filter))
     })
     app.get('/participants/top-earning', async (/** @type {RequestWithFilter} */ request, reply) => {
-      const pgPools = adaptPgPools(request.server.pg);
-      reply.send(await fetchTopEarningParticipants(pgPools.stats, request.filter))    })
+      reply.send(await fetchTopEarningParticipants(request.server.pg.stats, request.filter))    })
 
     app.get('/participants/accumulative/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
       reply.send(await fetchAccumulativeDailyParticipantCount(request.server.pg.evaluate, request.filter))
     })
     app.get('/transfers/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
-      const pgPools = adaptPgPools(request.server.pg);
-      reply.send(await fetchDailyRewardTransfers(pgPools.stats, request.filter))
+      reply.send(await fetchDailyRewardTransfers(request.server.pg.stats, request.filter))
     })
   })
 
