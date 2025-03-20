@@ -32,7 +32,7 @@ describe('observer', () => {
       await pgPools.stats.query('DELETE FROM daily_reward_transfers')
       await pgPools.stats.query('DELETE FROM participants') // Add participants cleanup
 
-      // 1️⃣ Insert mock participant data for testing
+      // 1) Insert mock participant data for testing
       await pgPools.stats.query(`
         INSERT INTO participants (id, participant_address)
         VALUES (1, 'address1'), (2, 'address2')
@@ -47,6 +47,36 @@ describe('observer', () => {
       providerMock = {
         getBlockNumber: async () => 2000
       }
+    })
+    it('should create a new participant if not found in the participants table', async () => {
+      // 1) Make the contract return an event for a new address 'address3'
+      ieContractMock.queryFilter = async (eventName, fromBlock) => {
+        return [
+          { args: { to: 'address3', amount: 400 }, blockNumber: 2000 }
+        ]
+      }
+
+      // 2) Run the observer function
+      const numEvents = await observeTransferEvents(pgPools.stats, ieContractMock, providerMock)
+
+      // Should have processed 1 new event
+      assert.strictEqual(numEvents, 1)
+
+      // 3) Check that a new participant row got created for 'address3'
+      const { rows: participantRows } = await pgPools.stats.query(`
+        SELECT id, participant_address
+        FROM participants
+        WHERE participant_address = 'address3'
+      `)
+      assert.strictEqual(participantRows.length, 1, 'Should have created a new participant for address3')
+
+      // 4) Check daily_reward_transfers references that new participant
+      const { rows: transferRows } = await pgPools.stats.query(`
+        SELECT to_address_id, amount, last_checked_block
+        FROM daily_reward_transfers
+      `)
+      assert.strictEqual(transferRows.length, 1, 'Should have inserted a new record in daily_reward_transfers')
+      assert.strictEqual(transferRows[0].amount, '400')
     })
 
     it('should correctly observe and update transfer events', async () => {
@@ -143,7 +173,7 @@ describe('observer', () => {
     })
   })
 
-  // 2️ Insert participant for scheduled rewards test
+  // 2) Insert participant for scheduled rewards test
   describe('observeScheduledRewards', () => {
     beforeEach(async () => {
       await pgPools.evaluate.query('DELETE FROM recent_station_details')
