@@ -24,17 +24,50 @@ export const observeTransferEvents = async (pgPoolStats, ieContract, provider) =
   const events = await ieContract.queryFilter(ieContract.filters.Transfer(), queryFromBlock)
 
   console.log(`Found ${events.length} Transfer events`)
-  for (const event of events.filter(isEventLog)) {
-    // 1️ Replace `toAddress` with `to_address_id` by fetching participant id from the participants table
-    const participantResult = await pgPoolStats.query(
-      'SELECT id FROM participants WHERE participant_address = $1',
-      [event.args.to]
-    )
-    const toAddressId = participantResult.rows[0]?.id
 
+  const filteredEvents = events.filter(isEventLog)
+
+  // gather addresses
+  const addresses = new Set()
+  for (const event of filteredEvents) {
+    addresses.add(event.args.to)
+  }
+
+  // fetch known participants
+  const addressesArray = [...addresses]
+  const { rows: found } = await pgPoolStats.query(`
+    SELECT id, participant_address
+    FROM participants
+    WHERE participant_address = ANY($1::TEXT[])
+  `, [addressesArray])
+  const addressMap = new Map()
+  for (const { id, participant_address: participantAddress } of found) {
+    addressMap.set(participantAddress, id)
+    addresses.delete(participantAddress)
+  }
+
+  // insert new addresses
+  const newAddresses = [...addresses]
+  if (newAddresses.length) {
+    const { rows: inserted } = await pgPoolStats.query(`
+      INSERT INTO participants (participant_address)
+      SELECT UNNEST($1::TEXT[]) AS participant_address
+      ON CONFLICT (participant_address) DO UPDATE
+        SET participant_address = EXCLUDED.participant_address
+      RETURNING id, participant_address
+    `, [newAddresses])
+    for (const { id, participant_address: participantAddress } of inserted) {
+      addressMap.set(participantAddress, id)
+    }
+  }
+
+  // handle events now that every toAddress is guaranteed an ID
+  for (const event of events.filter(isEventLog)) {
+    const toAddress = event.args.to
+    const toAddressId = addressMap.get(toAddress)
     if (!toAddressId) {
-      console.warn('Participant not found for address:', event.args.to)
-      continue // Skip if participant is not found
+      console.warn('Could not find or create participant for address:', toAddress)
+      continue
     }
 
     const transferEvent = {
@@ -42,7 +75,7 @@ export const observeTransferEvents = async (pgPoolStats, ieContract, provider) =
       amount: event.args.amount
     }
 
-    // 2️ Update call to accommodate `to_address_id`
+    // 2) Update call to accommodate `to_address_id`
     await updateDailyTransferStats(pgPoolStats, transferEvent, currentBlockNumber)
   }
 
@@ -72,7 +105,7 @@ const getScheduledRewards = async (address, ieContract, fetch) => {
  */
 export const observeScheduledRewards = async (pgPools, ieContract, fetch = globalThis.fetch) => {
   console.log('Querying scheduled rewards from impact evaluator')
-  // 3️ Fetch participant_id along with address to use in insert
+  // 3) Fetch participant_id along with address to use in insert
   const { rows } = await pgPools.evaluate.query(`
     SELECT p.id AS participant_id, p.participant_address
     FROM participants p
@@ -93,7 +126,7 @@ export const observeScheduledRewards = async (pgPools, ieContract, fetch = globa
       continue
     }
     console.log('Scheduled rewards for', address, scheduledRewards)
-    // 4️Use participant_id foreign key in insert
+    // 4) Use participant_id foreign key in insert
     await pgPools.stats.query(`
       INSERT INTO daily_scheduled_rewards
       (day, participant_id, scheduled_rewards)

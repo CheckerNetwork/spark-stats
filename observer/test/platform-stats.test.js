@@ -18,6 +18,9 @@ describe('platform-stats-generator', () => {
   beforeEach(async () => {
     await pgClient.query('DELETE FROM daily_reward_transfers')
     await pgClient.query('DELETE FROM participants')
+    // Run all tests inside a transaction to ensure `now()` always returns the same value
+    // See https://dba.stackexchange.com/a/63549/125312
+    // This avoids subtle race conditions when the tests are executed around midnight.
 
     // Insert participants for testing (addresses mapped to IDs)
     await pgClient.query(`
