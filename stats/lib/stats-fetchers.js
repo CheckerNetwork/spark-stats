@@ -1,6 +1,6 @@
-/**  
-   @typedef {import('@filecoin-station/spark-stats-db').Queryable} Queryable 
-   @typedef {import('./typings.js').FastifyPg} FastifyPg 
+/**
+   @typedef {import('@filecoin-station/spark-stats-db').Queryable} Queryable
+   @typedef {import('./typings.js').FastifyPg} FastifyPg
  */
 
 /**
@@ -307,7 +307,7 @@ export const fetchDailyRetrievalResultCodes = async (pg, filter) => {
 
 /**
  * Fetches daily global retrieval time statistics
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyRetrievalTimings = async (pg, filter) => {

@@ -1,10 +1,10 @@
 import assert from 'http-assert'
 import { today, yesterday } from './request-helpers.js'
 
-/** 
-  @typedef {import('./typings.js').DateRangeFilter} DateRangeFilter 
-  @typedef {import('@filecoin-station/spark-stats-db').Queryable} Queryable 
-  @typedef {import('./typings.js').FastifyPg} FastifyPg 
+/**
+  @typedef {import('./typings.js').DateRangeFilter} DateRangeFilter
+  @typedef {import('@filecoin-station/spark-stats-db').Queryable} Queryable
+  @typedef {import('./typings.js').FastifyPg} FastifyPg
 */
 
 /**
@@ -14,7 +14,7 @@ import { today, yesterday } from './request-helpers.js'
 const ONE_DAY = 24 * 60 * 60 * 1000
 
 /**
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyStationCount = async (pg, filter) => {
@@ -58,7 +58,7 @@ export const fetchDailyStationMeasurementCounts = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchParticipantsWithTopMeasurements = async (pg, filter) => {
@@ -73,7 +73,7 @@ export const fetchParticipantsWithTopMeasurements = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyRewardTransfers = async (pg, filter) => {
@@ -107,7 +107,7 @@ export const fetchDailyRewardTransfers = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchAccumulativeDailyParticipantCount = async (pg, filter) => {
@@ -134,7 +134,7 @@ export const fetchAccumulativeDailyParticipantCount = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchTopEarningParticipants = async (pg, filter) => {
@@ -162,7 +162,7 @@ export const fetchTopEarningParticipants = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  */
 export const fetchParticipantsSummary = async (pg) => {
   const { rows } = await pg.evaluate.query(`
@@ -174,7 +174,7 @@ export const fetchParticipantsSummary = async (pg) => {
 }
 
 /**
- * @param {FastifyPg} pg 
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyDesktopUsers = async (pg, filter) => {

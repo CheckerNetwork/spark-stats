@@ -10,7 +10,6 @@ const {
   EVALUATE_DB_URL
 } = process.env
 
-
 const app = await createApp({
   SPARK_API_BASE_URL,
   DATABASE_URL,
@@ -23,4 +22,3 @@ const app = await createApp({
 console.log('Starting the http server on host %j port %s', HOST, PORT)
 const baseUrl = app.listen({ port: Number(PORT), host: HOST })
 console.log(baseUrl)
-

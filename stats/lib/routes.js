@@ -23,10 +23,6 @@ import {
 /** @typedef {import('./typings.js').RequestWithFilterAndMinerId} RequestWithFilterAndMinerId */
 /** @typedef {import('./typings.js').RequestWithFilterAndClientId} RequestWithFilterAndClientId */
 
-
-
-
-
 export const addRoutes = (app, SPARK_API_BASE_URL) => {
   app.register(async app => {
     app.addHook('preHandler', filterPreHandlerHook)
@@ -35,8 +31,7 @@ export const addRoutes = (app, SPARK_API_BASE_URL) => {
     app.get('/deals/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
       reply.send(await fetchDailyDealStats(request.server.pg, request.filter))
     })
-    
-    
+
     app.get('/deals/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
       reply.send(await fetchDealSummary(request.server.pg, request.filter))
     })
@@ -107,4 +102,3 @@ const redirectToSparkApi = (request, reply, SPARK_API_BASE_URL) => {
   const location = new URL(request.url, SPARK_API_BASE_URL).toString()
   reply.redirect(location, 302)
 }
-
