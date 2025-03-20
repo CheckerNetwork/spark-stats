@@ -1,7 +1,13 @@
-/**
- * @param {Object} pg - Fastify pg object with database connections
- * @param {import('./typings.js').DateRangeFilter & {nonZero?: 'true'}} filter
+/**  
+   @typedef {import('@filecoin-station/spark-stats-db').Queryable} Queryable 
+   @typedef {import('./typings.js').FastifyPg} FastifyPg 
  */
+
+/**
+ * @param {import('./typings.js').DateRangeFilter & {nonZero?: 'true'}} filter
+ * @param {FastifyPg} pg - Fastify pg object with database connections
+ */
+
 export const fetchRetrievalSuccessRate = async (pg, filter) => {
   // Fetch the "day" (DATE) as a string (TEXT) to prevent node-postgres for converting it into
   // a JavaScript Date with a timezone, as that could change the date one day forward or back.
@@ -35,7 +41,7 @@ export const fetchRetrievalSuccessRate = async (pg, filter) => {
 }
 
 /**
- * @param {Object} pg 
+ * @param {any} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyDealStats = async (pg, filter) => {
@@ -62,7 +68,7 @@ export const fetchDailyDealStats = async (pg, filter) => {
 }
 
 /**
- * @param {Object} pg 
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDealSummary = async (pg, filter) => {
@@ -114,7 +120,7 @@ export const fetchMonthlyParticipants = async (pg, filter) => {
 }
 
 /**
- * @param {Object} pg 
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchParticipantChangeRates = async (pg, filter) => {
@@ -182,7 +188,7 @@ export const fetchParticipantChangeRates = async (pg, filter) => {
 }
 
 /**
- * @param {Object} pg 
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
@@ -196,7 +202,7 @@ export const fetchParticipantScheduledRewards = async (pg, { from, to }, address
 }
 
 /**
- * @param {Object} pg
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
@@ -211,7 +217,7 @@ export const fetchParticipantRewardTransfers = async (pg, { from, to }, address)
 
 /**
  * Fetches the retrieval stats summary for all miners for given date range.
- * @param {Object} pg 
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchMinersRSRSummary = async (pg, filter) => {
@@ -245,7 +251,7 @@ export const fetchMinersRSRSummary = async (pg, filter) => {
 
 /**
  * Fetches the retrieval stats summary for a single miner for given date range.
- * @param {Object} pg 
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} minerId
  */
@@ -301,7 +307,7 @@ export const fetchDailyRetrievalResultCodes = async (pg, filter) => {
 
 /**
  * Fetches daily global retrieval time statistics
- * @param {Object} pg 
+ * @param {FastifyPg} pg 
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyRetrievalTimings = async (pg, filter) => {
@@ -322,7 +328,7 @@ export const fetchDailyRetrievalTimings = async (pg, filter) => {
 
 /**
  * Fetches per miner daily retrieval time statistics
- * @param {Object} pg 
+ * @param {{stats: Queryable, evaluate: Queryable}} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} minerId
  */
@@ -346,9 +352,10 @@ export const fetchDailyMinerRetrievalTimings = async (pg, { from, to }, minerId)
 
 /**
  * Fetches retrieval time statistics summary for all miners for given date range.
- * @param {Object} pg 
+ /**
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
- */
+*/
 export const fetchMinersTimingsSummary = async (pg, { from, to }) => {
   const { rows } = await pg.evaluate.query(`
     SELECT
@@ -366,10 +373,10 @@ export const fetchMinersTimingsSummary = async (pg, { from, to }) => {
 }
 
 /**
- * Fetches the retrieval stats summary for all clients for given date range.
- * @param {Object} pg
- * @param {import('./typings.js').DateRangeFilter} filter
- */
+* Fetches the retrieval stats summary for all clients for given date range.
+* @param {FastifyPg} pg
+* @param {import('./typings.js').DateRangeFilter} filter
+*/
 export const fetchClientsRSRSummary = async (pg, filter) => {
   const { rows } = await pg.evaluate.query(`
     SELECT 
@@ -399,7 +406,7 @@ export const fetchClientsRSRSummary = async (pg, filter) => {
 
 /**
  * Fetches the retrieval stats summary for a single client for given date range.
- * @param {Object} pg
+ * @param {{stats: Queryable, evaluate: Queryable}} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} clientId
  */
