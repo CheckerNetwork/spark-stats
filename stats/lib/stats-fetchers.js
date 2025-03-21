@@ -1,12 +1,17 @@
-/** @typedef {import('@filecoin-station/spark-stats-db').PgPools} PgPools */
 /**
- * @param {PgPools} pgPools
- * @param {import('./typings.js').DateRangeFilter & {nonZero?: 'true'}} filter
+   @typedef {import('@filecoin-station/spark-stats-db').Queryable} Queryable
+   @typedef {import('./typings.js').FastifyPg} FastifyPg
  */
-export const fetchRetrievalSuccessRate = async (pgPools, filter) => {
+
+/**
+ * @param {import('./typings.js').DateRangeFilter & {nonZero?: 'true'}} filter
+ * @param {FastifyPg} pg - Fastify pg object with database connections
+ */
+
+export const fetchRetrievalSuccessRate = async (pg, filter) => {
   // Fetch the "day" (DATE) as a string (TEXT) to prevent node-postgres for converting it into
   // a JavaScript Date with a timezone, as that could change the date one day forward or back.
-  const { rows } = await pgPools.evaluate.query(`
+  const { rows } = await pg.evaluate.query(`
     SELECT 
     day::text, 
     SUM(total) as total, 
@@ -36,13 +41,13 @@ export const fetchRetrievalSuccessRate = async (pgPools, filter) => {
 }
 
 /**
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {any} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchDailyDealStats = async (pgPools, filter) => {
+export const fetchDailyDealStats = async (pg, filter) => {
   // Fetch the "day" (DATE) as a string (TEXT) to prevent node-postgres from converting it into
   // a JavaScript Date with a timezone, as that could change the date one day forward or back.
-  const { rows } = await pgPools.evaluate.query(`
+  const { rows } = await pg.evaluate.query(`
     SELECT
       day::text,
       SUM(tested) AS tested,
@@ -63,11 +68,11 @@ export const fetchDailyDealStats = async (pgPools, filter) => {
 }
 
 /**
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchDealSummary = async (pgPools, filter) => {
-  const { rows: [summary] } = await pgPools.evaluate.query(`
+export const fetchDealSummary = async (pg, filter) => {
+  const { rows: [summary] } = await pg.evaluate.query(`
     SELECT
       SUM(tested) AS tested,
       SUM(index_majority_found) AS "indexMajorityFound",
@@ -83,10 +88,10 @@ export const fetchDealSummary = async (pgPools, filter) => {
   return summary
 }
 
-export const fetchDailyParticipants = async (pgPools, filter) => {
+export const fetchDailyParticipants = async (pg, filter) => {
   // Fetch the "day" (DATE) as a string (TEXT) to prevent node-postgres from converting it into
   // a JavaScript Date with a timezone, as that could change the date one day forward or back.
-  const { rows } = await pgPools.evaluate.query(`
+  const { rows } = await pg.evaluate.query(`
     SELECT day::TEXT, COUNT(DISTINCT participant_id)::INT as participants
     FROM daily_participants
     WHERE day >= $1 AND day <= $2
@@ -96,10 +101,10 @@ export const fetchDailyParticipants = async (pgPools, filter) => {
   return rows
 }
 
-export const fetchMonthlyParticipants = async (pgPools, filter) => {
+export const fetchMonthlyParticipants = async (pg, filter) => {
   // Fetch the "day" (DATE) as a string (TEXT) to prevent node-postgres from converting it into
   // a JavaScript Date with a timezone, as that could change the date one day forward or back.
-  const { rows } = await pgPools.evaluate.query(`
+  const { rows } = await pg.evaluate.query(`
     SELECT
       date_trunc('month', day)::DATE::TEXT as month,
       COUNT(DISTINCT participant_id)::INT as participants
@@ -115,13 +120,13 @@ export const fetchMonthlyParticipants = async (pgPools, filter) => {
 }
 
 /**
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchParticipantChangeRates = async (pgPools, filter) => {
+export const fetchParticipantChangeRates = async (pg, filter) => {
   // Fetch the "day" (DATE) as a string (TEXT) to prevent node-postgres from converting it into
   // a JavaScript Date with a timezone, as that could change the date one day forward or back.
-  const { rows } = await pgPools.evaluate.query(`
+  const { rows } = await pg.evaluate.query(`
     SELECT
       date_trunc('month', day)::DATE::TEXT as month,
       participant_id
@@ -183,12 +188,12 @@ export const fetchParticipantChangeRates = async (pgPools, filter) => {
 }
 
 /**
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
-export const fetchParticipantScheduledRewards = async (pgPools, { from, to }, address) => {
-  const { rows } = await pgPools.stats.query(`
+export const fetchParticipantScheduledRewards = async (pg, { from, to }, address) => {
+  const { rows } = await pg.stats.query(`
     SELECT day::text, scheduled_rewards
     FROM daily_scheduled_rewards
     WHERE participant_address = $1 AND day >= $2 AND day <= $3
@@ -197,12 +202,12 @@ export const fetchParticipantScheduledRewards = async (pgPools, { from, to }, ad
 }
 
 /**
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
-export const fetchParticipantRewardTransfers = async (pgPools, { from, to }, address) => {
-  const { rows } = await pgPools.stats.query(`
+export const fetchParticipantRewardTransfers = async (pg, { from, to }, address) => {
+  const { rows } = await pg.stats.query(`
     SELECT day::TEXT, amount
     FROM daily_reward_transfers
     WHERE to_address = $1 AND day >= $2 AND day <= $3
@@ -212,11 +217,11 @@ export const fetchParticipantRewardTransfers = async (pgPools, { from, to }, add
 
 /**
  * Fetches the retrieval stats summary for all miners for given date range.
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchMinersRSRSummary = async (pgPools, filter) => {
-  const { rows } = await pgPools.evaluate.query(`
+export const fetchMinersRSRSummary = async (pg, filter) => {
+  const { rows } = await pg.evaluate.query(`
     SELECT 
     miner_id, 
     SUM(total) as total, 
@@ -246,12 +251,12 @@ export const fetchMinersRSRSummary = async (pgPools, filter) => {
 
 /**
  * Fetches the retrieval stats summary for a single miner for given date range.
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pg - Fastify pg object with database connections
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} minerId
  */
-export const fetchDailyMinerRSRSummary = async (pgPools, { from, to }, minerId) => {
-  const { rows } = await pgPools.evaluate.query(`
+export const fetchDailyMinerRSRSummary = async (pg, { from, to }, minerId) => {
+  const { rows } = await pg.evaluate.query(`
     SELECT 
     day::TEXT, 
     SUM(total) as total, SUM(successful) as successful, 
@@ -280,8 +285,8 @@ export const fetchDailyMinerRSRSummary = async (pgPools, { from, to }, minerId) 
   return stats
 }
 
-export const fetchDailyRetrievalResultCodes = async (pgPools, filter) => {
-  const { rows } = await pgPools.stats.query(`
+export const fetchDailyRetrievalResultCodes = async (pg, filter) => {
+  const { rows } = await pg.stats.query(`
     SELECT day::TEXT, code, rate
     FROM daily_retrieval_result_codes
     WHERE day >= $1 AND day <= $2
@@ -302,11 +307,11 @@ export const fetchDailyRetrievalResultCodes = async (pgPools, filter) => {
 
 /**
  * Fetches daily global retrieval time statistics
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchDailyRetrievalTimings = async (pgPools, filter) => {
-  const { rows } = await pgPools.evaluate.query(`
+export const fetchDailyRetrievalTimings = async (pg, filter) => {
+  const { rows } = await pg.evaluate.query(`
     SELECT
       day::text,
       CEIL(percentile_cont(0.5) WITHIN GROUP (ORDER BY ttfb_p50_values)) AS ttfb_ms
@@ -323,12 +328,12 @@ export const fetchDailyRetrievalTimings = async (pgPools, filter) => {
 
 /**
  * Fetches per miner daily retrieval time statistics
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {{stats: Queryable, evaluate: Queryable}} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} minerId
  */
-export const fetchDailyMinerRetrievalTimings = async (pgPools, { from, to }, minerId) => {
-  const { rows } = await pgPools.evaluate.query(`
+export const fetchDailyMinerRetrievalTimings = async (pg, { from, to }, minerId) => {
+  const { rows } = await pg.evaluate.query(`
     SELECT
       day::text,
       miner_id,
@@ -347,11 +352,12 @@ export const fetchDailyMinerRetrievalTimings = async (pgPools, { from, to }, min
 
 /**
  * Fetches retrieval time statistics summary for all miners for given date range.
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ /**
+ * @param {FastifyPg} pg
  * @param {import('./typings.js').DateRangeFilter} filter
- */
-export const fetchMinersTimingsSummary = async (pgPools, { from, to }) => {
-  const { rows } = await pgPools.evaluate.query(`
+*/
+export const fetchMinersTimingsSummary = async (pg, { from, to }) => {
+  const { rows } = await pg.evaluate.query(`
     SELECT
       miner_id,
       CEIL(percentile_cont(0.5) WITHIN GROUP (ORDER BY ttfb_p50_values)) AS ttfb_ms
@@ -367,12 +373,12 @@ export const fetchMinersTimingsSummary = async (pgPools, { from, to }) => {
 }
 
 /**
- * Fetches the retrieval stats summary for all clients for given date range.
- * @param {PgPools} pgPools
- * @param {import('./typings.js').DateRangeFilter} filter
- */
-export const fetchClientsRSRSummary = async (pgPools, filter) => {
-  const { rows } = await pgPools.evaluate.query(`
+* Fetches the retrieval stats summary for all clients for given date range.
+* @param {FastifyPg} pg
+* @param {import('./typings.js').DateRangeFilter} filter
+*/
+export const fetchClientsRSRSummary = async (pg, filter) => {
+  const { rows } = await pg.evaluate.query(`
     SELECT 
     client_id, 
     SUM(total) as total, 
@@ -400,12 +406,12 @@ export const fetchClientsRSRSummary = async (pgPools, filter) => {
 
 /**
  * Fetches the retrieval stats summary for a single client for given date range.
- * @param {PgPools} pgPools
+ * @param {{stats: Queryable, evaluate: Queryable}} pg
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} clientId
  */
-export const fetchDailyClientRSRSummary = async (pgPools, { from, to }, clientId) => {
-  const { rows } = await pgPools.evaluate.query(`
+export const fetchDailyClientRSRSummary = async (pg, { from, to }, clientId) => {
+  const { rows } = await pg.evaluate.query(`
     SELECT 
     day::TEXT, 
     SUM(total) as total, SUM(successful) as successful, 
