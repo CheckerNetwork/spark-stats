@@ -16,10 +16,16 @@ describe('HTTP request handler', () => {
 
   before(async () => {
     pgPools = await getPgPools()
+    
+    const {
+      DATABASE_URL = 'postgres://localhost:5432/spark_stats',
+      EVALUATE_DB_URL = 'postgres://localhost:5432/spark_evaluate'
+    } = process.env
 
-    app = createApp({
+    app = await createApp({
       SPARK_API_BASE_URL: 'https://api.filspark.com/',
-      pgPools,
+      DATABASE_URL,
+      EVALUATE_DB_URL,
       logger: {
         level: process.env.DEBUG === '*' || process.env.DEBUG?.includes('test')
           ? 'debug'

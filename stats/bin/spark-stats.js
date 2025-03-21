@@ -6,8 +6,8 @@ const {
   HOST = '127.0.0.1',
   SPARK_API_BASE_URL = 'https://api.filspark.com/',
   REQUEST_LOGGING = 'true',
-  DATABASE_URL,
-  EVALUATE_DB_URL
+  DATABASE_URL = 'postgres://localhost:5432/spark_stats',
+  EVALUATE_DB_URL = 'postgres://localhost:5432/spark_evaluate'
 } = process.env
 
 const app = await createApp({
