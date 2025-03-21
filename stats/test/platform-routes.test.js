@@ -208,6 +208,23 @@ describe('Platform Routes HTTP request handler', () => {
     })
   })
 
+  beforeEach(async () => {
+    await pgPools.stats.query('DELETE FROM daily_reward_transfers')
+    await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
+    await pgPools.stats.query('DELETE FROM participants')
+
+    await pgPools.stats.query(`
+      INSERT INTO participants (id, participant_address)
+      VALUES 
+        (1, 'to1'), 
+        (2, 'to2'), 
+        (3, 'to3'),
+        (4, 'address1'),
+        (5, 'address2'),
+        (6, 'address3')
+    `)
+  })
+
   describe('GET /transfers/daily', () => {
     it('returns daily total Rewards sent for the given date range', async () => {
       await givenDailyRewardTransferMetrics(pgPools.stats, '2024-01-10', [
@@ -274,20 +291,37 @@ describe('Platform Routes HTTP request handler', () => {
     })
   })
 
+  beforeEach(async () => {
+    await pgPools.stats.query('DELETE FROM daily_reward_transfers')
+    await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
+    await pgPools.stats.query('DELETE FROM participants')
+
+    await pgPools.stats.query(`
+      INSERT INTO participants (id, participant_address)
+      VALUES 
+        (1, 'to1'), 
+        (2, 'to2'), 
+        (3, 'to3'),
+        (4, 'address1'),
+        (5, 'address2'),
+        (6, 'address3')
+    `)
+  })
+
   describe('GET /participants/top-earning', () => {
     const oneWeekAgo = getLocalDayAsISOString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
 
     const setupScheduledRewardsData = async () => {
       await pgPools.stats.query(`
-        INSERT INTO daily_scheduled_rewards (day, participant_address, scheduled_rewards)
-        VALUES
-          ('${yesterday()}', 'address1', 10),
-          ('${yesterday()}', 'address2', 20),
-          ('${yesterday()}', 'address3', 30),
-          ('${today()}', 'address1', 15),
-          ('${today()}', 'address2', 25),
-          ('${today()}', 'address3', 35)
-      `)
+        INSERT INTO daily_scheduled_rewards (day, participant_id, scheduled_rewards)
+    VALUES
+      ('${yesterday()}', 4, 10),
+      ('${yesterday()}', 5, 20),
+      ('${yesterday()}', 6, 30),
+      ('${today()}', 4, 15),
+      ('${today()}', 5, 25),
+      ('${today()}', 6, 35)
+  `)
     }
     it('returns top earning participants for the given date range', async () => {
       // First two dates should be ignored
@@ -527,14 +561,27 @@ const givenMonthlyActiveStationCount = async (pgPoolEvaluate, month, stationCoun
 }
 
 const givenDailyRewardTransferMetrics = async (pgPoolStats, day, transferStats) => {
-  await pgPoolStats.query(`
-    INSERT INTO daily_reward_transfers (day, to_address, amount, last_checked_block)
-    SELECT $1 AS day, UNNEST($2::text[]) AS to_address, UNNEST($3::int[]) AS amount, UNNEST($4::int[]) AS last_checked_block
-    ON CONFLICT DO NOTHING
+  for (const transfer of transferStats) {
+    const participantResult = await pgPoolStats.query(
+      'SELECT id FROM participants WHERE participant_address = $1',
+      [transfer.toAddress]
+    )
+
+    if (participantResult.rows.length === 0) {
+      throw new Error(`Participant address ${transfer.toAddress} not found`)
+    }
+
+    const participantId = participantResult.rows[0].id
+
+    await pgPoolStats.query(`
+      INSERT INTO daily_reward_transfers (day, to_address_id, amount, last_checked_block)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT DO NOTHING
     `, [
-    day,
-    transferStats.map(s => s.toAddress),
-    transferStats.map(s => s.amount),
-    transferStats.map(s => s.lastCheckedBlock)
-  ])
+      day,
+      participantId,
+      transfer.amount,
+      transfer.lastCheckedBlock
+    ])
+  }
 }

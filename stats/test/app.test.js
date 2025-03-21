@@ -371,11 +371,23 @@ describe('HTTP request handler', () => {
     })
   })
 
+  beforeEach(async () => {
+    await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
+    await pgPools.stats.query('DELETE FROM daily_reward_transfers')
+    await pgPools.stats.query('DELETE FROM participants')
+
+    // Insert participants used by the tests below
+    await pgPools.stats.query(`
+      INSERT INTO participants (id, participant_address)
+      VALUES (1, '0x20'), (2, '0x00')
+    `)
+  })
+
   describe('GET /participant/:address/scheduled-rewards', () => {
     it('returns daily scheduled rewards for the given date range', async () => {
       await pgPools.stats.query(
-        'INSERT INTO daily_scheduled_rewards (day, participant_address, scheduled_rewards) VALUES ($1, $2, $3)',
-        ['2024-01-11', '0x20', '1']
+        'INSERT INTO daily_scheduled_rewards (day, participant_id, scheduled_rewards) VALUES ($1, $2, $3)',
+        ['2024-01-11', 1, '1']
       )
 
       const res = await fetch(
@@ -398,14 +410,14 @@ describe('HTTP request handler', () => {
     it('returns daily reward transfers for the given date range', async () => {
       await pgPools.stats.query(`
         INSERT INTO daily_reward_transfers
-        (day, to_address, amount, last_checked_block)
+        (day, to_address_id, amount, last_checked_block)
         VALUES
         ($1, $2, $3, $4)
-      `, ['2024-01-11', '0x00', '1', 0])
+      `, ['2024-01-11', 2, '1', 0])
 
       const res = await fetch(
         new URL(
-          '/participant/0x00/reward-transfers?from=2024-01-11&to=2024-01-12',
+          '/participant/0x00/reward-transfers?from=2024-01-11&to=2024-03-12',
           baseUrl
         ), {
           redirect: 'manual'
