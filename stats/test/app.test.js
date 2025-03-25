@@ -921,6 +921,92 @@ describe('HTTP request handler', () => {
         ])
       })
     })
+    describe('GET /allocators/retrieval-success-rate/summary', () => {
+      beforeEach(async () => {
+        await pgPools.evaluate.query('DELETE FROM daily_allocator_retrieval_stats')
+      })
+      it('returns a summary of allocators RSR for the given date range', async () => {
+        // before the range
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-10', allocatorId: 'f1oneAllocator', total: 10, successful: 1, successfulHttp: 1 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-10', allocatorId: 'f1twoAllocator', total: 100, successful: 20, successfulHttp: 10 })
+        // in the range
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-11', allocatorId: 'f1oneAllocator', total: 20, successful: 1, successfulHttp: 0 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-11', allocatorId: 'f2twoAllocator', total: 200, successful: 150, successfulHttp: 100 })
+        // after the range
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-12', allocatorId: 'f1oneAllocator', total: 30, successful: 1, successfulHttp: 1 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-12', allocatorId: 'f2twoAllocator', total: 300, successful: 60, successfulHttp: 60 })
+
+        const res = await fetch(
+          new URL(
+            '/allocators/retrieval-success-rate/summary?from=2024-01-11&to=2024-01-11',
+            baseUrl
+          ), {
+            redirect: 'manual'
+          }
+        )
+        await assertResponseStatus(res, 200)
+        const stats = await res.json()
+        assert.deepStrictEqual(stats, [
+          { allocator_id: 'f1oneAllocator', success_rate: 0.05, total: '20', successful: '1', successful_http: '0', success_rate_http: 0 },
+          { allocator_id: 'f2twoAllocator', success_rate: 0.75, total: '200', successful: '150', successful_http: '100', success_rate_http: 100 / 200 }
+        ])
+      })
+      it('handles total value being smaller or equal to 0', async () => {
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-11', allocatorId: 'f1oneAllocator', total: 0, successful: 0, successfulHttp: 0 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-11', allocatorId: 'f2twoAllocator', total: -1, successful: 0, successfulHttp: 0 })
+
+        const res = await fetch(
+          new URL(
+            'allocators/retrieval-success-rate/summary?from=2024-01-11&to=2024-01-11',
+            baseUrl
+          ), {
+            redirect: 'manual'
+          }
+        )
+        await assertResponseStatus(res, 200)
+        const stats = await res.json()
+        assert.deepStrictEqual(stats, [
+          { allocator_id: 'f1oneAllocator', success_rate: null, total: '0', successful: '0', successful_http: '0', success_rate_http: null },
+          { allocator_id: 'f2twoAllocator', success_rate: null, total: '-1', successful: '0', successful_http: '0', success_rate_http: null }
+        ])
+      })
+    })
+    describe('GET /allocator/{id}/retrieval-success-rate/summary', () => {
+      beforeEach(async () => {
+        await pgPools.evaluate.query('DELETE FROM daily_allocator_retrieval_stats')
+      })
+      it('lists daily retrieval stats summary for specified allocator in given date range', async () => {
+        // before the range
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-09', allocatorId: 'f1oneAllocator', total: 10, successful: 1, successfulHttp: 1 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-09', allocatorId: 'f2twoAllocator', total: 100, successful: 20, successfulHttp: 10 })
+        // in the range
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-20', allocatorId: 'f1oneAllocator', total: 20, successful: 1, successfulHttp: 0 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-20', allocatorId: 'f2twoAllocator', total: 200, successful: 60, successfulHttp: 50 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-10', allocatorId: 'f1oneAllocator', total: 10, successful: 1, successfulHttp: 1 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-10', allocatorId: 'f2twoAllocator', total: 100, successful: 50, successfulHttp: 35 })
+        // after the range
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-21', allocatorId: 'f1oneAllocator', total: 30, successful: 1, successfulHttp: 1 })
+        await givenAllocatorRetrievalStats(pgPools.evaluate, { day: '2024-01-21', allocatorId: 'f2twoAllocator', total: 300, successful: 60, successfulHttp: 60 })
+
+        const res = await fetch(
+          new URL(
+            '/allocator/f1oneAllocator/retrieval-success-rate/summary?from=2024-01-10&to=2024-01-20',
+            baseUrl
+          ), {
+            redirect: 'manual'
+          }
+        )
+        await assertResponseStatus(res, 200)
+
+        const stats = /** @type {{ day: string, success_rate: number }[]} */(
+          await res.json()
+        )
+        assert.deepStrictEqual(stats, [
+          { day: '2024-01-10', success_rate: 1 / 10, total: '10', successful: '1', successful_http: '1', success_rate_http: 1 / 10 },
+          { day: '2024-01-20', success_rate: 1 / 20, total: '20', successful: '1', successful_http: '0', success_rate_http: 0 }
+        ])
+      })
+    })
   })
 })
 
@@ -956,6 +1042,23 @@ const givenClientRetrievalStats = async (pgPool, { day, clientId, total, success
   await pgPool.query(
     'INSERT INTO daily_client_retrieval_stats (day, client_id, total, successful, successful_http) VALUES ($1, $2, $3, $4, $5)',
     [day, clientId ?? 'f1ClientTest', total, successful, successfulHttp]
+  )
+}
+
+/**
+ *
+ * @param {import('../lib/platform-stats-fetchers.js').Queryable} pgPool
+ * @param {object} data
+ * @param {string} data.day
+ * @param {string} [data.allocatorId]
+ * @param {number | bigint} data.total
+ * @param {number | bigint } data.successful
+ * @param {number | bigint} [data.successfulHttp]
+ */
+const givenAllocatorRetrievalStats = async (pgPool, { day, allocatorId, total, successful, successfulHttp }) => {
+  await pgPool.query(
+    'INSERT INTO daily_allocator_retrieval_stats (day, allocator_id, total, successful, successful_http) VALUES ($1, $2, $3, $4, $5)',
+    [day, allocatorId ?? 'f1AllocatorTest', total, successful, successfulHttp]
   )
 }
 

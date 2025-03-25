@@ -15,7 +15,9 @@ import {
   fetchDailyMinerRetrievalTimings,
   fetchMinersTimingsSummary,
   fetchDailyClientRSRSummary,
-  fetchClientsRSRSummary
+  fetchClientsRSRSummary,
+  fetchAllocatorsRSRSummary,
+  fetchDailyAllocatorRSRSummary
 } from './stats-fetchers.js'
 
 /** @typedef {import('./typings.js').RequestWithFilter} RequestWithFilter */
@@ -75,6 +77,12 @@ export const addRoutes = (app, pgPools, SPARK_API_BASE_URL) => {
     })
     app.get('/client/:clientId/retrieval-success-rate/summary', async (/** @type {RequestWithFilterAndClientId} */ request, reply) => {
       reply.send(await fetchDailyClientRSRSummary(pgPools, request.filter, request.params.clientId))
+    })
+    app.get('/allocators/retrieval-success-rate/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
+      reply.send(await fetchAllocatorsRSRSummary(pgPools, request.filter))
+    })
+    app.get('/allocator/:allocatorId/retrieval-success-rate/summary', async (/** @type {RequestWithFilterAndClientId} */ request, reply) => {
+      reply.send(await fetchDailyAllocatorRSRSummary(pgPools, request.filter, request.params.allocatorId))
     })
   })
 
