@@ -23,6 +23,7 @@ jobs:
           - cross-spawn
           - '@filecoin-station/spark-impact-evaluator'
           - '@fastify/'
+          - fastify
     steps:
       - name: Dependabot metadata
         id: metadata
