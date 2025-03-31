@@ -437,3 +437,69 @@ export const fetchDailyClientRSRSummary = async (pg, { from, to }, clientId) => 
   })
   return stats
 }
+
+/**
+ * Fetches the retrieval stats summary for all allocators for given date range.
+ * @param {FastifyPg} pg - Fastify pg object with database connections
+ * @param {import('./typings.js').DateRangeFilter} filter
+ */
+export const fetchAllocatorsRSRSummary = async (pg, filter) => {
+  const { rows } = await pg.evaluate.query(`
+    SELECT 
+    allocator_id, 
+    SUM(total) as total, 
+    SUM(successful) as successful, 
+    SUM(successful_http) as successful_http
+    FROM daily_allocator_retrieval_stats
+    WHERE day >= $1 AND day <= $2
+    GROUP BY allocator_id
+   `, [
+    filter.from,
+    filter.to
+  ])
+  const stats = rows.map(r => {
+    return {
+      allocator_id: r.allocator_id,
+      total: r.total,
+      successful: r.successful,
+      success_rate: r.total > 0 ? r.successful / r.total : null,
+      successful_http: r.successful_http,
+      success_rate_http: r.total > 0 ? r.successful_http / r.total : null
+    }
+  })
+  return stats
+}
+
+/**
+ * Fetches the retrieval stats summary for a single allocator for given date range.
+ * @param {FastifyPg} pg - Fastify pg object with database connections
+ * @param {import('./typings.js').DateRangeFilter} filter
+ * @param {string} allocatorId
+ */
+export const fetchDailyAllocatorRSRSummary = async (pg, { from, to }, allocatorId) => {
+  const { rows } = await pg.evaluate.query(`
+    SELECT 
+    day::TEXT, 
+    SUM(total) as total, SUM(successful) as successful, 
+    SUM(successful_http) as successful_http
+    FROM daily_allocator_retrieval_stats
+    WHERE allocator_id = $1 AND day >= $2 AND day <= $3
+    GROUP BY day
+    ORDER BY day
+   `, [
+    allocatorId,
+    from,
+    to
+  ])
+  const stats = rows.map(r => {
+    return {
+      day: r.day,
+      total: r.total,
+      successful: r.successful,
+      success_rate: r.total > 0 ? r.successful / r.total : null,
+      successful_http: r.successful_http,
+      success_rate_http: r.total > 0 ? r.successful_http / r.total : null
+    }
+  })
+  return stats
+}

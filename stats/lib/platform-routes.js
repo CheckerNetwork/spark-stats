@@ -48,6 +48,6 @@ export const addPlatformRoutes = (app) => {
 
   app.get('/participants/summary', async (request, reply) => {
     reply.header('cache-control', `public, max-age=${24 * 3600 /* one day */}`)
-    reply.send(await fetchParticipantsSummary(request.server.pg.evaluate))
+    reply.send(await fetchParticipantsSummary(request.server.pg))
   })
 }
