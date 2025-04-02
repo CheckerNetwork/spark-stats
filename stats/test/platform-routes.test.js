@@ -10,11 +10,12 @@ describe('Platform Routes HTTP request handler', () => {
   let app
   /** @type {string} */
   let baseUrl
+  let pgPools
 
   before(async () => {
     // Use test database connection strings
-    const DATABASE_URL = 'postgres://postgres:postgres@localhost:5433/spark_stats'
-    const EVALUATE_DB_URL = 'postgres://postgres:postgres@localhost:5433/spark_evaluate'
+    const DATABASE_URL = 'postgres://postgres:postgres@localhost:5432/spark_stats'
+    const EVALUATE_DB_URL = 'postgres://postgres:postgres@localhost:5432/spark_evaluate'
 
     // Await the app creation since it's async
     app = await createApp({
@@ -27,7 +28,7 @@ describe('Platform Routes HTTP request handler', () => {
           : 'error'
       }
     })
-
+    pgPools = app.pg
     baseUrl = await app.listen({ port: 0 }) // Use random port for tests
   })
 
@@ -36,18 +37,18 @@ describe('Platform Routes HTTP request handler', () => {
   })
 
   beforeEach(async () => {
-    await app.pg.evaluate.query('DELETE FROM recent_station_details')
-    await app.pg.evaluate.query('DELETE FROM recent_participant_subnets')
-    await app.pg.evaluate.query('DELETE FROM daily_participants')
-    await app.pg.evaluate.query('DELETE FROM participants')
-    await app.pg.evaluate.query('DELETE FROM monthly_active_station_count')
-    await app.pg.evaluate.query('DELETE FROM daily_platform_stats')
+    await pgPools.evaluate.query('DELETE FROM recent_station_details')
+    await pgPools.evaluate.query('DELETE FROM recent_participant_subnets')
+    await pgPools.evaluate.query('DELETE FROM daily_participants')
+    await pgPools.evaluate.query('DELETE FROM participants')
+    await pgPools.evaluate.query('DELETE FROM monthly_active_station_count')
+    await pgPools.evaluate.query('DELETE FROM daily_platform_stats')
 
-    await app.pg.evaluate.query('REFRESH MATERIALIZED VIEW top_measurement_participants_yesterday_mv')
+    await pgPools.evaluate.query('REFRESH MATERIALIZED VIEW top_measurement_participants_yesterday_mv')
 
-    await app.pg.stats.query('DELETE FROM daily_reward_transfers')
-    await app.pg.stats.query('DELETE FROM daily_scheduled_rewards')
-    await app.pg.stats.query('DELETE FROM daily_desktop_users')
+    await pgPools.stats.query('DELETE FROM daily_reward_transfers')
+    await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
+    await pgPools.stats.query('DELETE FROM daily_desktop_users')
   })
 
   // Helper functions updated to use app's database connections
@@ -61,7 +62,7 @@ describe('Platform Routes HTTP request handler', () => {
       inet_group_count: row.inet_group_count ?? 8
     }))
 
-    await app.pg.evaluate.query(`
+    await pgPools.evaluate.query(`
       INSERT INTO daily_platform_stats (
         day,
         accepted_measurement_count,
@@ -89,7 +90,7 @@ describe('Platform Routes HTTP request handler', () => {
   }
 
   const givenMonthlyActiveStationCount = async (month, stationCount) => {
-    await app.pg.evaluate.query(`
+    await pgPools.evaluate.query(`
       INSERT INTO monthly_active_station_count (month, station_count)
       VALUES ($1, $2)
       ON CONFLICT DO NOTHING
@@ -100,7 +101,7 @@ describe('Platform Routes HTTP request handler', () => {
   }
 
   const givenDailyRewardTransferMetrics = async (day, transferStats) => {
-    await app.pg.stats.query(`
+    await pgPools.stats.query(`
       INSERT INTO daily_reward_transfers (day, to_address, amount, last_checked_block)
       SELECT $1 AS day, UNNEST($2::text[]) AS to_address, UNNEST($3::int[]) AS amount, UNNEST($4::int[]) AS last_checked_block
       ON CONFLICT DO NOTHING
@@ -116,7 +117,7 @@ describe('Platform Routes HTTP request handler', () => {
   const givenDailyParticipants = async (day, participantAddresses) => {
     // This is a simplified implementation - you may need to adjust based on your actual schema
     for (const address of participantAddresses) {
-      await app.pg.evaluate.query(`
+      await pgPools.evaluate.query(`
         WITH participant AS (
           INSERT INTO participants (participant_address)
           VALUES ($1)
@@ -131,7 +132,7 @@ describe('Platform Routes HTTP request handler', () => {
   }
 
   const givenDailyDesktopUsers = async (day, count) => {
-    await app.pg.stats.query(`
+    await pgPools.stats.query(`
       INSERT INTO daily_desktop_users (day, user_count)
       VALUES ($1, $2)
       ON CONFLICT DO NOTHING
@@ -221,14 +222,14 @@ describe('Platform Routes HTTP request handler', () => {
     it('returns top measurement stations for the given date', async () => {
       const day = yesterday()
 
-      await app.pg.evaluate.query(`
+      await pgPools.evaluate.query(`
         INSERT INTO participants (id, participant_address) VALUES
           (1, 'f1abcdef'),
           (2, 'f1ghijkl'),
           (3, 'f1mnopqr')
       `)
 
-      await app.pg.evaluate.query(`
+      await pgPools.evaluate.query(`
         INSERT INTO recent_station_details (day, participant_id, station_id, accepted_measurement_count, total_measurement_count) VALUES
           ($1, 1, 'station1', 20, 25),
           ($1, 1, 'station2', 20, 25),
@@ -238,7 +239,7 @@ describe('Platform Routes HTTP request handler', () => {
           ($1, 3, 'station6', 10, 15)
       `, [day])
 
-      await app.pg.evaluate.query(`
+      await pgPools.evaluate.query(`
         INSERT INTO recent_participant_subnets (day, participant_id, subnet) VALUES
           ($1, 1, 'subnet1'),
           ($1, 1, 'subnet2'),
@@ -249,7 +250,7 @@ describe('Platform Routes HTTP request handler', () => {
       `, [day])
 
       // Refresh the materialized view
-      await app.pg.evaluate.query('REFRESH MATERIALIZED VIEW top_measurement_participants_yesterday_mv')
+      await pgPools.evaluate.query('REFRESH MATERIALIZED VIEW top_measurement_participants_yesterday_mv')
 
       const res = await fetch(
         new URL(
@@ -367,7 +368,7 @@ describe('Platform Routes HTTP request handler', () => {
     const oneWeekAgo = getLocalDayAsISOString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
 
     const setupScheduledRewardsData = async () => {
-      await app.pg.stats.query(`
+      await pgPools.stats.query(`
         INSERT INTO daily_scheduled_rewards (day, participant_address, scheduled_rewards)
         VALUES
           ('${yesterday()}', 'address1', 10),

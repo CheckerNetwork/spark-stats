@@ -8,17 +8,17 @@ import { today, yesterday } from './request-helpers.js'
 */
 
 /**
- * @param {FastifyPg} pg - Fastify pg object with database connections
+ * @param {FastifyPg} pgPools 
  */
 
 const ONE_DAY = 24 * 60 * 60 * 1000
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchDailyStationCount = async (pg, filter) => {
-  const { rows } = await pg.evaluate.query(`
+export const fetchDailyStationCount = async (pgPools, filter) => {
+  const { rows } = await pgPools.evaluate.query(`
     SELECT day::TEXT, station_count
     FROM daily_platform_stats
     WHERE day >= $1 AND day <= $2
@@ -28,11 +28,11 @@ export const fetchDailyStationCount = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchMonthlyStationCount = async (pg, filter) => {
-  const { rows } = await pg.evaluate.query(`
+export const fetchMonthlyStationCount = async (pgPools, filter) => {
+  const { rows } = await pgPools.evaluate.query(`
     SELECT month::TEXT, station_count
     FROM monthly_active_station_count
     WHERE
@@ -44,11 +44,11 @@ export const fetchMonthlyStationCount = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchDailyStationMeasurementCounts = async (pg, filter) => {
-  const { rows } = await pg.evaluate.query(`
+export const fetchDailyStationMeasurementCounts = async (pgPools, filter) => {
+  const { rows } = await pgPools.evaluate.query(`
     SELECT day::TEXT, accepted_measurement_count, total_measurement_count
     FROM daily_platform_stats
     WHERE day >= $1 AND day <= $2
@@ -58,31 +58,31 @@ export const fetchDailyStationMeasurementCounts = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchParticipantsWithTopMeasurements = async (pg, filter) => {
+export const fetchParticipantsWithTopMeasurements = async (pgPools, filter) => {
   assert(filter.to === filter.from, 400, 'Multi-day queries are not supported for this endpoint')
   assert(filter.to === yesterday(), 400, 'filter.to must be set to yesterday, other values are not supported yet')
   // Ignore the filter for this query
   // Get the top measurement stations from the Materialized View
-  return (await pg.evaluate.query(`
+  return (await pgPools.evaluate.query(`
     SELECT day::TEXT, participant_address, station_count, accepted_measurement_count, inet_group_count
     FROM top_measurement_participants_yesterday_mv
   `)).rows
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchDailyRewardTransfers = async (pg, filter) => {
+export const fetchDailyRewardTransfers = async (pgPools, filter) => {
   assert(
     new Date(filter.to).getTime() - new Date(filter.from).getTime() <= 31 * ONE_DAY,
     400,
     'Date range must be 31 days max'
   )
-  const { rows } = await pg.stats.query(`
+  const { rows } = await pgPools.stats.query(`
     SELECT day::TEXT, to_address, amount
     FROM daily_reward_transfers
     WHERE day >= $1 AND day <= $2
@@ -107,11 +107,11 @@ export const fetchDailyRewardTransfers = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchAccumulativeDailyParticipantCount = async (pg, filter) => {
-  const { rows } = await pg.evaluate.query(`
+export const fetchAccumulativeDailyParticipantCount = async (pgPools, filter) => {
+  const { rows } = await pgPools.evaluate.query(`
     WITH first_appearance AS (
       SELECT participant_id, MIN(day) as day
       FROM daily_participants
@@ -134,15 +134,15 @@ export const fetchAccumulativeDailyParticipantCount = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchTopEarningParticipants = async (pg, filter) => {
+export const fetchTopEarningParticipants = async (pgPools, filter) => {
   // The query combines "transfers until filter.to" with "latest scheduled rewards as of today".
   // As a result, it produces incorrect result if `to` is different from `now()`.
   // See https://github.com/filecoin-station/spark-stats/pull/170#discussion_r1664080395
   assert(filter.to === today(), 400, 'filter.to must be today, other values are not supported')
-  const { rows } = await pg.stats.query(`
+  const { rows } = await pgPools.stats.query(`
     WITH latest_scheduled_rewards AS (
       SELECT DISTINCT ON (participant_address) participant_address, scheduled_rewards
       FROM daily_scheduled_rewards
@@ -162,10 +162,10 @@ export const fetchTopEarningParticipants = async (pg, filter) => {
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  */
-export const fetchParticipantsSummary = async (pg) => {
-  const { rows } = await pg.evaluate.query(`
+export const fetchParticipantsSummary = async (pgPools) => {
+  const { rows } = await pgPools.evaluate.query(`
     SELECT COUNT(DISTINCT participant_id) FROM daily_participants
   `)
   return {
@@ -174,11 +174,11 @@ export const fetchParticipantsSummary = async (pg) => {
 }
 
 /**
- * @param {FastifyPg} pg
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
-export const fetchDailyDesktopUsers = async (pg, filter) => {
-  const { rows } = await pg.stats.query(`
+export const fetchDailyDesktopUsers = async (pgPools, filter) => {
+  const { rows } = await pgPools.stats.query(`
     SELECT
       day::TEXT,
       user_count
