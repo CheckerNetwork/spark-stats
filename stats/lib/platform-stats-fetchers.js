@@ -8,7 +8,7 @@ import { today, yesterday } from './request-helpers.js'
 */
 
 /**
- * @param {FastifyPg} pgPools 
+ * @param {FastifyPg} pgPools
  */
 
 const ONE_DAY = 24 * 60 * 60 * 1000
