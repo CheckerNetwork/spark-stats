@@ -54,6 +54,15 @@ Base URL: http://stats.filspark.com/
 
   http://stats.filspark.com/allocator/f03015751/deals/eligible/summary
 
+- `GET /allocators/retrieval-success-rate/summary?from=<day>&to=<day>`
+
+  http://stats.filspark.com/allocators/retrieval-success-rate/summary
+
+
+- `GET /allocator/:id/retrieval-success-rate/summary?from=<day>&to=<day>`
+
+  http://stats.filspark.com/allocator/f0215074/retrieval-success-rate/summary
+
 - `GET /participants/daily?from=<day>&to=<day>`
 
   http://stats.filspark.com/participants/daily
