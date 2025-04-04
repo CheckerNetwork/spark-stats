@@ -1,6 +1,7 @@
 import { updateDailyTransferStats } from './platform-stats.js'
 import * as Sentry from '@sentry/node'
 import assert from 'node:assert'
+import { mapParticipantsToIds } from './map-participants-to-ids.js'
 
 /**
  * Observe the transfer events on the Filecoin blockchain
@@ -24,12 +25,32 @@ export const observeTransferEvents = async (pgPoolStats, ieContract, provider) =
   const events = await ieContract.queryFilter(ieContract.filters.Transfer(), queryFromBlock)
 
   console.log(`Found ${events.length} Transfer events`)
+
+  const filteredEvents = events.filter(isEventLog)
+
+  // gather addresses
+  const addresses = new Set()
+  for (const event of filteredEvents) {
+    addresses.add(event.args.to)
+  }
+
+  const addressMap = await mapParticipantsToIds(pgPoolStats, addresses)
+
+  // handle events now that every toAddress is guaranteed an ID
   for (const event of events.filter(isEventLog)) {
+    const toAddress = event.args.to
+    const toAddressId = addressMap.get(toAddress)
+    if (!toAddressId) {
+      console.warn('Could not find or create participant for address:', toAddress)
+      continue
+    }
+
     const transferEvent = {
-      toAddress: event.args.to,
+      to_address_id: toAddressId,
       amount: event.args.amount
     }
-    console.log('Transfer event:', transferEvent)
+
+    // 2) Update call to accommodate `to_address_id`
     await updateDailyTransferStats(pgPoolStats, transferEvent, currentBlockNumber)
   }
 
@@ -60,11 +81,16 @@ const getScheduledRewards = async (address, ieContract, fetch) => {
 export const observeScheduledRewards = async (pgPools, ieContract, fetch = globalThis.fetch) => {
   console.log('Querying scheduled rewards from impact evaluator')
   const { rows } = await pgPools.evaluate.query(`
-    SELECT participant_address
+    SELECT p.participant_address
     FROM participants p
     JOIN daily_participants d ON p.id = d.participant_id
     WHERE d.day >= now() - interval '3 days'
   `)
+
+  // The query above fetched participant addresses from the spark_evaluate database
+  // Now we need to register those participants in the spark_stats database too
+  const addressToIdMap = await mapParticipantsToIds(pgPools.stats, new Set(rows.map(r => r.participant_address)))
+
   for (const { participant_address: address } of rows) {
     let scheduledRewards
     try {
@@ -79,13 +105,15 @@ export const observeScheduledRewards = async (pgPools, ieContract, fetch = globa
       continue
     }
     console.log('Scheduled rewards for', address, scheduledRewards)
+    const participantId = addressToIdMap.get(address)
+
     await pgPools.stats.query(`
       INSERT INTO daily_scheduled_rewards
-      (day, participant_address, scheduled_rewards)
+      (day, participant_id, scheduled_rewards)
       VALUES (now(), $1, $2)
-      ON CONFLICT (day, participant_address) DO UPDATE SET
-      scheduled_rewards = EXCLUDED.scheduled_rewards
-    `, [address, scheduledRewards])
+      ON CONFLICT (day, participant_id) DO UPDATE SET
+        scheduled_rewards = EXCLUDED.scheduled_rewards
+    `, [participantId, scheduledRewards])
   }
 }
 
