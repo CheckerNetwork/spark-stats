@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from 'mocha'
 import { getPgPools } from '@filecoin-station/spark-stats-db'
 
 import { observeTransferEvents, observeScheduledRewards, observeRetrievalResultCodes, observeYesterdayDesktopUsers } from '../lib/observer.js'
+import { givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 describe('observer', () => {
   let pgPools
@@ -30,14 +31,7 @@ describe('observer', () => {
 
     beforeEach(async () => {
       await pgPools.stats.query('DELETE FROM daily_reward_transfers')
-      await pgPools.stats.query('DELETE FROM participants') // Add participants cleanup
-
-      // 1) Insert mock participant data for testing
-      await pgPools.stats.query(`
-        INSERT INTO participants (id, participant_address)
-        VALUES (1, 'address1'), (2, 'address2')
-      `)
-
+      await pgPools.stats.query('DELETE FROM participants')
       ieContractMock = {
         filters: {
           Transfer: () => 'TransferEventFilter'
@@ -91,12 +85,14 @@ describe('observer', () => {
       await observeTransferEvents(pgPools.stats, ieContractMock, providerMock)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        SELECT day::TEXT, participant_address as to_address, amount, last_checked_block
+        FROM daily_reward_transfers
+        LEFT JOIN participants ON daily_reward_transfers.to_address_id = participants.id
         ORDER BY to_address_id
       `)
       assert.strictEqual(rows.length, 1)
       assert.deepStrictEqual(rows, [{
-        day: today(), to_address_id: 1, amount: '300', last_checked_block: 2000
+        day: today(), to_address: 'address1', amount: '300', last_checked_block: 2000
       }])
     })
 
@@ -112,13 +108,15 @@ describe('observer', () => {
       await observeTransferEvents(pgPools.stats, ieContractMock, providerMock)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        SELECT day::TEXT, participant_address as to_address, amount, last_checked_block
+        FROM daily_reward_transfers
+        LEFT JOIN participants ON daily_reward_transfers.to_address_id = participants.id
         ORDER BY to_address_id
       `)
       assert.strictEqual(rows.length, 2)
       assert.deepStrictEqual(rows, [
-        { day: today(), to_address_id: 1, amount: '50', last_checked_block: 2000 },
-        { day: today(), to_address_id: 2, amount: '150', last_checked_block: 2000 }
+        { day: today(), to_address: 'address1', amount: '50', last_checked_block: 2000 },
+        { day: today(), to_address: 'address2', amount: '150', last_checked_block: 2000 }
       ])
     })
 
@@ -138,13 +136,15 @@ describe('observer', () => {
       assert.strictEqual(numEvents2, 0)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        SELECT day::TEXT, participant_address as to_address, amount, last_checked_block
+        FROM daily_reward_transfers
+        LEFT JOIN participants ON daily_reward_transfers.to_address_id = participants.id
         ORDER BY to_address_id
       `)
       assert.strictEqual(rows.length, 2)
       assert.deepStrictEqual(rows, [
-        { day: today(), to_address_id: 1, amount: '50', last_checked_block: 2000 },
-        { day: today(), to_address_id: 2, amount: '150', last_checked_block: 2000 }
+        { day: today(), to_address: 'address1', amount: '50', last_checked_block: 2000 },
+        { day: today(), to_address: 'address2', amount: '150', last_checked_block: 2000 }
       ])
     })
 
@@ -162,13 +162,15 @@ describe('observer', () => {
       await observeTransferEvents(pgPools.stats, ieContractMock, providerMock)
 
       const { rows } = await pgPools.stats.query(`
-        SELECT day::TEXT, to_address_id, amount, last_checked_block FROM daily_reward_transfers
+        SELECT day::TEXT, participant_address as to_address, amount, last_checked_block
+        FROM daily_reward_transfers
+        LEFT JOIN participants ON daily_reward_transfers.to_address_id = participants.id
         ORDER BY to_address_id
       `)
       assert.strictEqual(rows.length, 2)
       assert.deepStrictEqual(rows, [
-        { day: today(), to_address_id: 1, amount: '200', last_checked_block: 2000 },
-        { day: today(), to_address_id: 2, amount: '150', last_checked_block: 2000 }
+        { day: today(), to_address: 'address1', amount: '200', last_checked_block: 2000 },
+        { day: today(), to_address: 'address2', amount: '150', last_checked_block: 2000 }
       ])
     })
   })
@@ -182,14 +184,9 @@ describe('observer', () => {
       await pgPools.evaluate.query('DELETE FROM participants')
       await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
 
-      await pgPools.evaluate.query(`
-            INSERT INTO participants (id, participant_address)
-            VALUES (1, '0xCURRENT'), (2, '0xOLD')
-          `)
-      await pgPools.evaluate.query(`
-            INSERT INTO daily_participants (day, participant_id)
-            VALUES ($1, 1), ('2000-01-01', 2)
-          `, [today()])
+      // NOTE: these participants are defined in the spark-evaluate database!
+      await givenDailyParticipants(pgPools.evaluate, today(), ['0xCURRENT'])
+      await givenDailyParticipants(pgPools.evaluate, '2000-01-01', ['0xOLD'])
     })
 
     it('observes scheduled rewards', async () => {
@@ -209,16 +206,18 @@ describe('observer', () => {
       await observeScheduledRewards(pgPools, ieContract, fetchMock)
 
       const { rows } = await pgPools.stats.query(`
-            SELECT participant_id, scheduled_rewards FROM daily_scheduled_rewards
-          `)
+        SELECT participant_address, scheduled_rewards
+        FROM daily_scheduled_rewards
+        LEFT JOIN participants ON daily_scheduled_rewards.participant_id = participants.id
+      `)
 
       const formattedRows = rows.map(row => ({
-        participantId: row.participant_id,
+        participantAddress: row.participant_address,
         scheduledRewards: row.scheduled_rewards
       }))
 
       assert.deepStrictEqual(formattedRows, [{
-        participantId: 1,
+        participantAddress: '0xCURRENT',
         scheduledRewards: '110'
       }])
     })
@@ -227,6 +226,7 @@ describe('observer', () => {
       /** @type {any} */
       const ieContract = {
         rewardsScheduledFor: async (address) => {
+          console.log('rewardsScheduledFor(%s)', address)
           if (address === '0xCURRENT') {
             return 200n
           } else {
@@ -243,16 +243,18 @@ describe('observer', () => {
       await observeScheduledRewards(pgPools, ieContract, fetchMock)
 
       const { rows } = await pgPools.stats.query(`
-            SELECT participant_id, scheduled_rewards FROM daily_scheduled_rewards
-          `)
+        SELECT participant_address, scheduled_rewards
+        FROM daily_scheduled_rewards
+        LEFT JOIN participants ON daily_scheduled_rewards.participant_id = participants.id
+      `)
 
       const formattedRows = rows.map(row => ({
-        participantId: row.participant_id,
+        participantAddress: row.participant_address,
         scheduledRewards: row.scheduled_rewards
       }))
 
       assert.deepStrictEqual(formattedRows, [{
-        participantId: 1,
+        participantAddress: '0xCURRENT',
         scheduledRewards: '200'
       }])
     })
