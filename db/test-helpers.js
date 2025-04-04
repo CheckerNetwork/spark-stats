@@ -1,7 +1,9 @@
 import { mapParticipantsToIds } from '@filecoin-station/spark-evaluate/lib/platform-stats.js'
 
 /**
- * @param {import('./typings.js').Queryable} pgPool
+ * Populate daily participants in spark_evaluate database
+ *
+ * @param {import('./typings.js').PgPoolEvaluate} pgPool
  * @param {string} day
  * @param {string[]} participantAddresses
  */
