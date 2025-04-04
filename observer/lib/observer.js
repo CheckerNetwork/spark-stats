@@ -1,6 +1,7 @@
 import { updateDailyTransferStats } from './platform-stats.js'
 import * as Sentry from '@sentry/node'
 import assert from 'node:assert'
+import { mapParticipantsToIds } from './map-participants-to-ids.js'
 
 /**
  * Observe the transfer events on the Filecoin blockchain
@@ -33,33 +34,7 @@ export const observeTransferEvents = async (pgPoolStats, ieContract, provider) =
     addresses.add(event.args.to)
   }
 
-  // fetch known participants
-  const addressesArray = [...addresses]
-  const { rows: found } = await pgPoolStats.query(`
-    SELECT id, participant_address
-    FROM participants
-    WHERE participant_address = ANY($1::TEXT[])
-  `, [addressesArray])
-  const addressMap = new Map()
-  for (const { id, participant_address: participantAddress } of found) {
-    addressMap.set(participantAddress, id)
-    addresses.delete(participantAddress)
-  }
-
-  // insert new addresses
-  const newAddresses = [...addresses]
-  if (newAddresses.length) {
-    const { rows: inserted } = await pgPoolStats.query(`
-      INSERT INTO participants (participant_address)
-      SELECT UNNEST($1::TEXT[]) AS participant_address
-      ON CONFLICT (participant_address) DO UPDATE
-        SET participant_address = EXCLUDED.participant_address
-      RETURNING id, participant_address
-    `, [newAddresses])
-    for (const { id, participant_address: participantAddress } of inserted) {
-      addressMap.set(participantAddress, id)
-    }
-  }
+  const addressMap = await mapParticipantsToIds(pgPoolStats, addresses)
 
   // handle events now that every toAddress is guaranteed an ID
   for (const event of events.filter(isEventLog)) {
