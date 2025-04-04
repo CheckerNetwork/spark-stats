@@ -1,5 +1,4 @@
 import assert from 'node:assert'
-import { getPgPools } from '@filecoin-station/spark-stats-db'
 import { givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 import { assertResponseStatus } from './test-helpers.js'
@@ -7,32 +6,34 @@ import { createApp } from '../lib/app.js'
 import { today } from '../lib/request-helpers.js'
 
 describe('HTTP request handler', () => {
-  /** @type {import('@filecoin-station/spark-stats-db').PgPools} */
-  let pgPools
   /** @type {import('fastify').FastifyInstance} */
   let app
   /** @type {string} */
   let baseUrl
+  let pgPools
 
   before(async () => {
-    pgPools = await getPgPools()
+    // Use test database connection strings
+    const DATABASE_URL = 'postgres://postgres:postgres@localhost:5432/spark_stats'
+    const EVALUATE_DB_URL = 'postgres://postgres:postgres@localhost:5432/spark_evaluate'
 
-    app = createApp({
+    app = await createApp({
       SPARK_API_BASE_URL: 'https://api.filspark.com/',
-      pgPools,
+      DATABASE_URL,
+      EVALUATE_DB_URL,
       logger: {
         level: process.env.DEBUG === '*' || process.env.DEBUG?.includes('test')
           ? 'debug'
           : 'error'
       }
     })
+    pgPools = app.pg
 
     baseUrl = await app.listen()
   })
 
   after(async () => {
-    await app.close()
-    await pgPools.end()
+    await app?.close()
   })
 
   beforeEach(async () => {
@@ -43,6 +44,7 @@ describe('HTTP request handler', () => {
     await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
     await pgPools.stats.query('DELETE FROM daily_reward_transfers')
     await pgPools.stats.query('DELETE FROM daily_retrieval_result_codes')
+    await pgPools.evaluate.query('DELETE FROM daily_client_retrieval_stats')
   })
 
   it('returns 200 for GET /', async () => {
@@ -1012,7 +1014,8 @@ describe('HTTP request handler', () => {
 
 /**
  *
- * @param {import('../lib/platform-stats-fetchers.js').Queryable} pgPool
+ * @param {Object} pg - Fastify pg object with database connections
+
  * @param {object} data
  * @param {string} data.day
  * @param {string} [data.minerId]
@@ -1021,8 +1024,8 @@ describe('HTTP request handler', () => {
  * @param {number | bigint} [data.successfulHttp]
  * @param {number | bigint} [data.successfulHttpHead]
  */
-const givenRetrievalStats = async (pgPool, { day, minerId, total, successful, successfulHttp, successfulHttpHead }) => {
-  await pgPool.query(
+const givenRetrievalStats = async (pg, { day, minerId, total, successful, successfulHttp, successfulHttpHead }) => {
+  await pg.query(
     'INSERT INTO retrieval_stats (day, miner_id, total, successful, successful_http, successful_http_head) VALUES ($1, $2, $3, $4, $5, $6)',
     [day, minerId ?? 'f1test', total, successful, successfulHttp, successfulHttpHead]
   )
@@ -1030,7 +1033,7 @@ const givenRetrievalStats = async (pgPool, { day, minerId, total, successful, su
 
 /**
  *
- * @param {import('../lib/platform-stats-fetchers.js').Queryable} pgPool
+ * @param {Object} pg - Fastify pg object with database connections
  * @param {object} data
  * @param {string} data.day
  * @param {string} [data.clientId]
@@ -1038,8 +1041,8 @@ const givenRetrievalStats = async (pgPool, { day, minerId, total, successful, su
  * @param {number | bigint } data.successful
  * @param {number | bigint} [data.successfulHttp]
  */
-const givenClientRetrievalStats = async (pgPool, { day, clientId, total, successful, successfulHttp }) => {
-  await pgPool.query(
+const givenClientRetrievalStats = async (pg, { day, clientId, total, successful, successfulHttp }) => {
+  await pg.query(
     'INSERT INTO daily_client_retrieval_stats (day, client_id, total, successful, successful_http) VALUES ($1, $2, $3, $4, $5)',
     [day, clientId ?? 'f1ClientTest', total, successful, successfulHttp]
   )
@@ -1047,7 +1050,7 @@ const givenClientRetrievalStats = async (pgPool, { day, clientId, total, success
 
 /**
  *
- * @param {import('../lib/platform-stats-fetchers.js').Queryable} pgPool
+ * @param {Object} pg - Fastify pg object with database connections
  * @param {object} data
  * @param {string} data.day
  * @param {string} [data.allocatorId]
@@ -1055,8 +1058,8 @@ const givenClientRetrievalStats = async (pgPool, { day, clientId, total, success
  * @param {number | bigint } data.successful
  * @param {number | bigint} [data.successfulHttp]
  */
-const givenAllocatorRetrievalStats = async (pgPool, { day, allocatorId, total, successful, successfulHttp }) => {
-  await pgPool.query(
+const givenAllocatorRetrievalStats = async (pg, { day, allocatorId, total, successful, successfulHttp }) => {
+  await pg.query(
     'INSERT INTO daily_allocator_retrieval_stats (day, allocator_id, total, successful, successful_http) VALUES ($1, $2, $3, $4, $5)',
     [day, allocatorId ?? 'f1AllocatorTest', total, successful, successfulHttp]
   )
@@ -1064,7 +1067,7 @@ const givenAllocatorRetrievalStats = async (pgPool, { day, allocatorId, total, s
 
 /**
  *
- * @param {import('@filecoin-station/spark-stats-db').Queryable} pgPool
+ * @param {import('@filecoin-station/spark-stats-db').Queryable} pg
  * @param {{
  *  day: string;
  *  minerId?: string;
@@ -1077,7 +1080,7 @@ const givenAllocatorRetrievalStats = async (pgPool, { day, allocatorId, total, s
  *  retrievable?: number;
  * }} stats
  */
-const givenDailyDealStats = async (pgPool, {
+const givenDailyDealStats = async (pg, {
   day,
   minerId,
   clientId,
@@ -1095,7 +1098,7 @@ const givenDailyDealStats = async (pgPool, {
   retrievable ??= tested
   retrievalMajorityFound ??= retrievable
 
-  await pgPool.query(`
+  await pg.query(`
     INSERT INTO daily_deals (
       day,
       miner_id,
@@ -1122,14 +1125,14 @@ const givenDailyDealStats = async (pgPool, {
 
 /**
  *
- * @param {import('../lib/platform-stats-fetchers.js').Queryable} pgPool
+ * @param {Object} pg - Fastify pg object with database connections
  * @param {object} data
  * @param {string} data.day
  * @param {string} data.minerId
  * @param {number[]} data.timeToFirstByteP50
  */
-const givenRetrievalTimings = async (pgPool, { day, minerId, timeToFirstByteP50 }) => {
-  await pgPool.query(
+const givenRetrievalTimings = async (pg, { day, minerId, timeToFirstByteP50 }) => {
+  await pg.query(
     'INSERT INTO retrieval_timings (day, miner_id, ttfb_p50) VALUES ($1, $2, $3)',
     [day, minerId ?? 'f1test', timeToFirstByteP50]
   )
