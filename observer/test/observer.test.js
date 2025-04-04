@@ -184,7 +184,7 @@ describe('observer', () => {
       await pgPools.evaluate.query('DELETE FROM participants')
       await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
 
-      // NOTE: these participants are defined in the spark-evaluate database!
+      // NOTE: these participants are defined in the spark_evaluate database!
       await givenDailyParticipants(pgPools.evaluate, today(), ['0xCURRENT'])
       await givenDailyParticipants(pgPools.evaluate, '2000-01-01', ['0xOLD'])
     })
