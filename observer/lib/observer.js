@@ -80,14 +80,18 @@ const getScheduledRewards = async (address, ieContract, fetch) => {
  */
 export const observeScheduledRewards = async (pgPools, ieContract, fetch = globalThis.fetch) => {
   console.log('Querying scheduled rewards from impact evaluator')
-  // 3) Fetch participant_id along with address to use in insert
   const { rows } = await pgPools.evaluate.query(`
-    SELECT p.id AS participant_id, p.participant_address
+    SELECT p.participant_address
     FROM participants p
     JOIN daily_participants d ON p.id = d.participant_id
     WHERE d.day >= now() - interval '3 days'
   `)
-  for (const { participant_address: address, participant_id: participantId } of rows) {
+
+  // The query above fetched participant addresses from the spark_evaluate database
+  // Now we need to register those participants in the spark_stats database too
+  const addressToIdMap = await mapParticipantsToIds(pgPools.stats, new Set(rows.map(r => r.participant_address)))
+
+  for (const { participant_address: address } of rows) {
     let scheduledRewards
     try {
       scheduledRewards = await getScheduledRewards(address, ieContract, fetch)
@@ -101,7 +105,8 @@ export const observeScheduledRewards = async (pgPools, ieContract, fetch = globa
       continue
     }
     console.log('Scheduled rewards for', address, scheduledRewards)
-    // 4) Use participant_id foreign key in insert
+    const participantId = addressToIdMap.get(address)
+
     await pgPools.stats.query(`
       INSERT INTO daily_scheduled_rewards
       (day, participant_id, scheduled_rewards)

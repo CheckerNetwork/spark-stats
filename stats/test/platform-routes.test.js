@@ -215,9 +215,9 @@ describe('Platform Routes HTTP request handler', () => {
 
     await pgPools.stats.query(`
       INSERT INTO participants (id, participant_address)
-      VALUES 
-        (1, 'to1'), 
-        (2, 'to2'), 
+      VALUES
+        (1, 'to1'),
+        (2, 'to2'),
         (3, 'to3'),
         (4, 'address1'),
         (5, 'address2'),
@@ -298,9 +298,9 @@ describe('Platform Routes HTTP request handler', () => {
 
     await pgPools.stats.query(`
       INSERT INTO participants (id, participant_address)
-      VALUES 
-        (1, 'to1'), 
-        (2, 'to2'), 
+      VALUES
+        (1, 'to1'),
+        (2, 'to2'),
         (3, 'to3'),
         (4, 'address1'),
         (5, 'address2'),
