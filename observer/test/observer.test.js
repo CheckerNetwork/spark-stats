@@ -124,7 +124,7 @@ describe('observer', () => {
       ieContractMock.queryFilter = async (eventName, fromBlock) => {
         const events = [
           { args: { to: 'address1', amount: 50 }, blockNumber: 2000 },
-          { args: { to: 'address2', amount: 150 }, blockNumber: 2000 }
+          { args: { to: 'address1', amount: 50 }, blockNumber: 2000 }
         ]
         return events.filter((event) => event.blockNumber >= fromBlock)
       }
@@ -141,20 +141,19 @@ describe('observer', () => {
         LEFT JOIN participants ON daily_reward_transfers.to_address_id = participants.id
         ORDER BY to_address_id
       `)
-      assert.strictEqual(rows.length, 2)
-      assert.deepStrictEqual(rows, [
-        { day: today(), to_address: 'address1', amount: '50', last_checked_block: 2000 },
-        { day: today(), to_address: 'address2', amount: '150', last_checked_block: 2000 }
-      ])
+      assert.strictEqual(rows.length, 1)
+      assert.deepStrictEqual(rows, [{
+        day: today(), to_address: 'address1', amount: '100', last_checked_block: 2000
+      }])
     })
 
     it('should avoid querying too old blocks', async () => {
-      providerMock.getBlockNumber = async () => 2000
+      providerMock.getBlockNumber = async () => 2500
       ieContractMock.queryFilter = async (eventName, fromBlock) => {
         const events = [
           { args: { to: 'address1', amount: 50 }, blockNumber: 400 },
           { args: { to: 'address2', amount: 150 }, blockNumber: 400 },
-          { args: { to: 'address1', amount: 150 }, blockNumber: 2000 }
+          { args: { to: 'address1', amount: 250 }, blockNumber: 2000 }
         ]
         return events.filter((event) => event.blockNumber >= fromBlock)
       }
@@ -167,11 +166,10 @@ describe('observer', () => {
         LEFT JOIN participants ON daily_reward_transfers.to_address_id = participants.id
         ORDER BY to_address_id
       `)
-      assert.strictEqual(rows.length, 2)
-      assert.deepStrictEqual(rows, [
-        { day: today(), to_address: 'address1', amount: '200', last_checked_block: 2000 },
-        { day: today(), to_address: 'address2', amount: '150', last_checked_block: 2000 }
-      ])
+      assert.strictEqual(rows.length, 1)
+      assert.deepStrictEqual(rows, [{
+        day: today(), to_address: 'address1', amount: '250', last_checked_block: 2500
+      }])
     })
   })
 
