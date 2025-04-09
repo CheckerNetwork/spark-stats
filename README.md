@@ -131,6 +131,10 @@ Base URL: http://stats.filspark.com/
   
   http://stats.filspark.com/retrieval-result-codes/daily
 
+- `GET /network/retrieval-success-rate?from=2024-01-01&to=2024-01-31`
+
+  http://stats.filspark.com/network/retrieval-success-rate
+
 ## Development
 
 ### Database

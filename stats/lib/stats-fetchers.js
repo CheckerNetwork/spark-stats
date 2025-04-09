@@ -497,3 +497,32 @@ export const fetchDailyAllocatorRSRSummary = async (pgPools, { from, to }, alloc
   })
   return stats
 }
+
+/**
+ * Fetches the network retrieval success rate for given date range.
+ *
+ * @param {PgPools} pgPools
+ * @param {import('./typings.js').DateRangeFilter} filter
+ */
+export const fetchNetworkRetrievalSuccessRate = async (pgPools, filter) => {
+  const { rows } = await pgPools.evaluate.query(`
+    SELECT
+    day::text,
+    SUM(total) as total,
+    SUM(successful) as successful,
+    FROM network_retrieval_stats
+    WHERE day >= $1 AND day <= $2
+    GROUP BY day
+    ORDER BY day
+    `, [
+    filter.from,
+    filter.to
+  ])
+  const stats = rows.map(r => ({
+    day: r.day,
+    total: r.total,
+    successful: r.successful,
+    success_rate: r.total > 0 ? r.successful / r.total : null
+  }))
+  return stats
+}
