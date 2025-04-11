@@ -53,7 +53,6 @@ export const mapParticipantsToIds = async (pgClient, participantsSet) => {
   // SELECT query and the next INSERT query.
   const newAddresses = Array.from(participantsSet.values())
   debug('Registering new participant addresses, count=%s', newAddresses.length)
-  console.log('new addresses', newAddresses)
   const { rows: created } = await pgClient.query(`
     INSERT INTO participants (participant_address)
     SELECT UNNEST($1::TEXT[]) AS participant_address

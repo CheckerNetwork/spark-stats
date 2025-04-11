@@ -1,9 +1,9 @@
 import assert from 'node:assert'
 import { beforeEach, describe, it } from 'mocha'
 import { getPgPools } from '@filecoin-station/spark-stats-db'
+import { givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 import { observeTransferEvents, observeScheduledRewards, observeRetrievalResultCodes, observeYesterdayDesktopUsers } from '../lib/observer.js'
-import { givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 describe('observer', () => {
   let pgPools

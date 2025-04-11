@@ -46,7 +46,7 @@ export const observeTransferEvents = async (pgPoolStats, ieContract, provider) =
     }
 
     const transferEvent = {
-      to_address_id: toAddressId,
+      toAddressId,
       amount: event.args.amount
     }
 
@@ -81,7 +81,7 @@ const getScheduledRewards = async (address, ieContract, fetch) => {
 export const observeScheduledRewards = async (pgPools, ieContract, fetch = globalThis.fetch) => {
   console.log('Querying scheduled rewards from impact evaluator')
   const { rows } = await pgPools.evaluate.query(`
-    SELECT p.participant_address
+    SELECT participant_address
     FROM participants p
     JOIN daily_participants d ON p.id = d.participant_id
     WHERE d.day >= now() - interval '3 days'

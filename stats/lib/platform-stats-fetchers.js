@@ -139,21 +139,21 @@ export const fetchTopEarningParticipants = async (pgPool, filter) => {
   assert(filter.to === today(), 400, 'filter.to must be today, other values are not supported')
   const { rows } = await pgPool.query(`
     WITH latest_scheduled_rewards AS (
-  SELECT DISTINCT ON (participant_id) participant_id, scheduled_rewards
-  FROM daily_scheduled_rewards
-  ORDER BY participant_id, day DESC
-)
-SELECT
-  p.participant_address,
-  COALESCE(SUM(drt.amount), 0) + COALESCE(lsr.scheduled_rewards, 0) AS total_rewards
-FROM daily_reward_transfers drt
-FULL OUTER JOIN latest_scheduled_rewards lsr
-  ON drt.to_address_id = lsr.participant_id
-JOIN participants p 
-  ON p.id = COALESCE(drt.to_address_id, lsr.participant_id)
-WHERE (drt.day BETWEEN $1 AND $2) OR drt.day IS NULL
-GROUP BY p.id, p.participant_address, lsr.scheduled_rewards
-ORDER BY total_rewards DESC;
+      SELECT DISTINCT ON (participant_id) participant_id, scheduled_rewards
+      FROM daily_scheduled_rewards
+      ORDER BY participant_id, day DESC
+    )
+    SELECT
+      p.participant_address,
+      COALESCE(SUM(drt.amount), 0) + COALESCE(lsr.scheduled_rewards, 0) AS total_rewards
+    FROM daily_reward_transfers drt
+    FULL OUTER JOIN latest_scheduled_rewards lsr
+      ON drt.to_address_id = lsr.participant_id
+    JOIN participants p
+      ON p.id = COALESCE(drt.to_address_id, lsr.participant_id)
+    WHERE (drt.day BETWEEN $1 AND $2) OR drt.day IS NULL
+    GROUP BY p.id, p.participant_address, lsr.scheduled_rewards
+    ORDER BY total_rewards DESC;
   `, [filter.from, filter.to])
 
   return rows

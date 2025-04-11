@@ -44,12 +44,12 @@ describe('platform-stats-generator', () => {
   describe('updateDailyTransferStats', () => {
     it('should correctly update daily Transfer stats with new transfer events', async () => {
       await updateDailyTransferStats(pgClient, {
-        to_address_id: addressMap.get('address1'),
+        toAddressId: addressMap.get('address1'),
         amount: 100
       }, 1)
 
       await updateDailyTransferStats(pgClient, {
-        to_address_id: addressMap.get('address1'),
+        toAddressId: addressMap.get('address1'),
         amount: 200
       }, 2)
 
@@ -67,12 +67,12 @@ describe('platform-stats-generator', () => {
 
     it('should handle multiple addresses in daily Transfer stats', async () => {
       await updateDailyTransferStats(pgClient, {
-        to_address_id: addressMap.get('address1'),
+        toAddressId: addressMap.get('address1'),
         amount: 50
       }, 1)
 
       await updateDailyTransferStats(pgClient, {
-        to_address_id: addressMap.get('address2'),
+        toAddressId: addressMap.get('address2'),
         amount: 150
       }, 1)
 
