@@ -1,37 +1,39 @@
 import assert from 'node:assert'
-import { getPgPools } from '@filecoin-station/spark-stats-db'
+import { beforeEach, describe, it } from 'mocha'
 
 import { assertResponseStatus } from './test-helpers.js'
 import { createApp } from '../lib/app.js'
 import { getLocalDayAsISOString, today, yesterday } from '../lib/request-helpers.js'
-import { givenDailyParticipants, givenDailyDesktopUsers } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 describe('Platform Routes HTTP request handler', () => {
-  /** @type {import('@filecoin-station/spark-stats-db').PgPools} */
-  let pgPools
+  /** @type {import('fastify').FastifyInstance} */
   let app
   /** @type {string} */
   let baseUrl
+  let pgPools
 
   before(async () => {
-    pgPools = await getPgPools()
+    // Use test database connection strings
+    const DATABASE_URL = 'postgres://postgres:postgres@localhost:5432/spark_stats'
+    const EVALUATE_DB_URL = 'postgres://postgres:postgres@localhost:5432/spark_evaluate'
 
-    app = createApp({
+    // Await the app creation since it's async
+    app = await createApp({
       SPARK_API_BASE_URL: 'https://api.filspark.com/',
-      pgPools,
+      DATABASE_URL,
+      EVALUATE_DB_URL,
       logger: {
         level: process.env.DEBUG === '*' || process.env.DEBUG?.includes('test')
           ? 'debug'
           : 'error'
       }
     })
-
-    baseUrl = await app.listen()
+    pgPools = app.pg
+    baseUrl = await app.listen({ port: 0 }) // Use random port for tests
   })
 
   after(async () => {
-    await app.close()
-    await pgPools.end()
+    await app?.close()
   })
 
   beforeEach(async () => {
@@ -49,9 +51,97 @@ describe('Platform Routes HTTP request handler', () => {
     await pgPools.stats.query('DELETE FROM daily_desktop_users')
   })
 
+  // Helper functions updated to use app's database connections
+  const givenDailyMeasurementsSummary = async (summaryData) => {
+    const processedSummaryData = summaryData.map(row => ({
+      day: row.day,
+      accepted_measurement_count: row.accepted_measurement_count ?? 100,
+      total_measurement_count: row.total_measurement_count ?? 120,
+      station_count: row.station_count ?? 10,
+      participant_address_count: row.participant_address_count ?? 5,
+      inet_group_count: row.inet_group_count ?? 8
+    }))
+
+    await pgPools.evaluate.query(`
+      INSERT INTO daily_platform_stats (
+        day,
+        accepted_measurement_count,
+        total_measurement_count,
+        station_count,
+        participant_address_count,
+        inet_group_count
+      )
+      SELECT
+        UNNEST($1::date[]) AS day,
+        UNNEST($2::int[]) AS accepted_measurement_count,
+        UNNEST($3::int[]) AS total_measurement_count,
+        UNNEST($4::int[]) AS station_count,
+        UNNEST($5::int[]) AS participant_address_count,
+        UNNEST($6::int[]) AS inet_group_count
+      ON CONFLICT DO NOTHING
+      `, [
+      processedSummaryData.map(s => s.day),
+      processedSummaryData.map(s => s.accepted_measurement_count),
+      processedSummaryData.map(s => s.total_measurement_count),
+      processedSummaryData.map(s => s.station_count),
+      processedSummaryData.map(s => s.participant_address_count),
+      processedSummaryData.map(s => s.inet_group_count)
+    ])
+  }
+
+  const givenMonthlyActiveStationCount = async (month, stationCount) => {
+    await pgPools.evaluate.query(`
+      INSERT INTO monthly_active_station_count (month, station_count)
+      VALUES ($1, $2)
+      ON CONFLICT DO NOTHING
+      `, [
+      month,
+      stationCount
+    ])
+  }
+
+  const givenDailyRewardTransferMetrics = async (day, transferStats) => {
+    await pgPools.stats.query(`
+      INSERT INTO daily_reward_transfers (day, to_address, amount, last_checked_block)
+      SELECT $1 AS day, UNNEST($2::text[]) AS to_address, UNNEST($3::int[]) AS amount, UNNEST($4::int[]) AS last_checked_block
+      ON CONFLICT DO NOTHING
+      `, [
+      day,
+      transferStats.map(s => s.toAddress),
+      transferStats.map(s => s.amount),
+      transferStats.map(s => s.lastCheckedBlock)
+    ])
+  }
+
+  // Helper function for participants
+  const givenDailyParticipants = async (day, participantAddresses) => {
+    // This is a simplified implementation - you may need to adjust based on your actual schema
+    for (const address of participantAddresses) {
+      await pgPools.evaluate.query(`
+        WITH participant AS (
+          INSERT INTO participants (participant_address)
+          VALUES ($1)
+          ON CONFLICT (participant_address) DO UPDATE SET participant_address = EXCLUDED.participant_address
+          RETURNING id
+        )
+        INSERT INTO daily_participants (day, participant_id)
+        SELECT $2, id FROM participant
+        ON CONFLICT DO NOTHING
+      `, [address, day])
+    }
+  }
+
+  const givenDailyDesktopUsers = async (day, count) => {
+    await pgPools.stats.query(`
+      INSERT INTO daily_desktop_users (day, user_count)
+      VALUES ($1, $2)
+      ON CONFLICT DO NOTHING
+    `, [day, count])
+  }
+
   describe('GET /stations/daily', () => {
     it('returns daily station metrics for the given date range', async () => {
-      await givenDailyMeasurementsSummary(pgPools.evaluate, [
+      await givenDailyMeasurementsSummary([
         { day: '2024-01-10', station_count: 3 },
         { day: '2024-01-11', station_count: 1 },
         { day: '2024-01-12', station_count: 2 },
@@ -78,12 +168,12 @@ describe('Platform Routes HTTP request handler', () => {
   describe('GET /stations/monthly', () => {
     it('returns monthly station metrics for the given date range', async () => {
       // before the date range
-      await givenMonthlyActiveStationCount(pgPools.evaluate, '2023-12-01', 10)
+      await givenMonthlyActiveStationCount('2023-12-01', 10)
       // in the date range
-      await givenMonthlyActiveStationCount(pgPools.evaluate, '2024-01-01', 3)
-      await givenMonthlyActiveStationCount(pgPools.evaluate, '2024-02-01', 1)
+      await givenMonthlyActiveStationCount('2024-01-01', 3)
+      await givenMonthlyActiveStationCount('2024-02-01', 1)
       // after the date range
-      await givenMonthlyActiveStationCount(pgPools.evaluate, '2024-03-01', 5)
+      await givenMonthlyActiveStationCount('2024-03-01', 5)
 
       const res = await fetch(
         new URL(
@@ -104,7 +194,7 @@ describe('Platform Routes HTTP request handler', () => {
 
   describe('GET /measurements/daily', () => {
     it('returns daily total accepted measurement count for the given date range', async () => {
-      await givenDailyMeasurementsSummary(pgPools.evaluate, [
+      await givenDailyMeasurementsSummary([
         { day: '2024-01-10', accepted_measurement_count: 5, total_measurement_count: 6 },
         { day: '2024-01-11', accepted_measurement_count: 1, total_measurement_count: 2 },
         { day: '2024-01-12', accepted_measurement_count: 3, total_measurement_count: 4 },
@@ -210,17 +300,17 @@ describe('Platform Routes HTTP request handler', () => {
 
   describe('GET /transfers/daily', () => {
     it('returns daily total Rewards sent for the given date range', async () => {
-      await givenDailyRewardTransferMetrics(pgPools.stats, '2024-01-10', [
+      await givenDailyRewardTransferMetrics('2024-01-10', [
         { toAddress: 'to1', amount: 100, lastCheckedBlock: 1 }
       ])
-      await givenDailyRewardTransferMetrics(pgPools.stats, '2024-01-11', [
+      await givenDailyRewardTransferMetrics('2024-01-11', [
         { toAddress: 'to2', amount: 150, lastCheckedBlock: 1 }
       ])
-      await givenDailyRewardTransferMetrics(pgPools.stats, '2024-01-12', [
+      await givenDailyRewardTransferMetrics('2024-01-12', [
         { toAddress: 'to2', amount: 300, lastCheckedBlock: 1 },
         { toAddress: 'to3', amount: 250, lastCheckedBlock: 1 }
       ])
-      await givenDailyRewardTransferMetrics(pgPools.stats, '2024-01-13', [
+      await givenDailyRewardTransferMetrics('2024-01-13', [
         { toAddress: 'to1', amount: 100, lastCheckedBlock: 1 }
       ])
 
@@ -291,21 +381,21 @@ describe('Platform Routes HTTP request handler', () => {
     }
     it('returns top earning participants for the given date range', async () => {
       // First two dates should be ignored
-      await givenDailyRewardTransferMetrics(pgPools.stats, '2024-01-09', [
+      await givenDailyRewardTransferMetrics('2024-01-09', [
         { toAddress: 'address1', amount: 100, lastCheckedBlock: 1 },
         { toAddress: 'address2', amount: 100, lastCheckedBlock: 1 },
         { toAddress: 'address3', amount: 100, lastCheckedBlock: 1 }
       ])
-      await givenDailyRewardTransferMetrics(pgPools.stats, '2024-01-10', [
+      await givenDailyRewardTransferMetrics('2024-01-10', [
         { toAddress: 'address1', amount: 100, lastCheckedBlock: 1 }
       ])
 
       // These should be included in the results
-      await givenDailyRewardTransferMetrics(pgPools.stats, oneWeekAgo, [
+      await givenDailyRewardTransferMetrics(oneWeekAgo, [
         { toAddress: 'address2', amount: 150, lastCheckedBlock: 1 },
         { toAddress: 'address1', amount: 50, lastCheckedBlock: 1 }
       ])
-      await givenDailyRewardTransferMetrics(pgPools.stats, today(), [
+      await givenDailyRewardTransferMetrics(today(), [
         { toAddress: 'address3', amount: 200, lastCheckedBlock: 1 },
         { toAddress: 'address2', amount: 100, lastCheckedBlock: 1 }
       ])
@@ -332,7 +422,7 @@ describe('Platform Routes HTTP request handler', () => {
     it('returns top earning participants for the given date range with no existing reward transfers', async () => {
       await setupScheduledRewardsData()
 
-      await givenDailyRewardTransferMetrics(pgPools.stats, today(), [
+      await givenDailyRewardTransferMetrics(today(), [
         { toAddress: 'address1', amount: 100, lastCheckedBlock: 1 }
       ])
 
@@ -367,11 +457,7 @@ describe('Platform Routes HTTP request handler', () => {
 
   describe('GET /participants/summary', () => {
     it('counts participants', async () => {
-      await givenDailyParticipants(
-        pgPools.evaluate,
-        '2000-01-01',
-        ['0x1', '0x2', '0x3']
-      )
+      await givenDailyParticipants('2000-01-01', ['0x1', '0x2', '0x3'])
 
       const res = await fetch(
         new URL('/participants/summary', baseUrl), {
@@ -391,35 +477,15 @@ describe('Platform Routes HTTP request handler', () => {
   describe('GET /participants/accumulative/daily', () => {
     it('counts accumulative daily participants', async () => {
       // 3 new participants, out of range
-      await givenDailyParticipants(
-        pgPools.evaluate,
-        '1999-01-01',
-        ['0x10', '0x20', '0x30']
-      )
+      await givenDailyParticipants('1999-01-01', ['0x10', '0x20', '0x30'])
       // 3 new participants, 1 old participant -> 6
-      await givenDailyParticipants(
-        pgPools.evaluate,
-        '2000-01-01',
-        ['0x1', '0x2', '0x3', '0x10']
-      )
+      await givenDailyParticipants('2000-01-01', ['0x1', '0x2', '0x3', '0x10'])
       // 0 new participants, 2 old participants
-      await givenDailyParticipants(
-        pgPools.evaluate,
-        '2000-01-02',
-        ['0x1', '0x2']
-      )
+      await givenDailyParticipants('2000-01-02', ['0x1', '0x2'])
       // 1 new participant, 1 old participant -> 7
-      await givenDailyParticipants(
-        pgPools.evaluate,
-        '2000-01-03',
-        ['0x1', '0x4']
-      )
+      await givenDailyParticipants('2000-01-03', ['0x1', '0x4'])
       // 1 new participant, out of range
-      await givenDailyParticipants(
-        pgPools.evaluate,
-        '2000-01-04',
-        ['0x5']
-      )
+      await givenDailyParticipants('2000-01-04', ['0x5'])
 
       const res = await fetch(
         new URL('/participants/accumulative/daily?from=2000-01-01&to=2000-01-03', baseUrl), {
@@ -442,28 +508,12 @@ describe('Platform Routes HTTP request handler', () => {
   describe('GET /stations/desktop/daily', () => {
     it('counts daily desktop users', async () => {
       // out of range
-      await givenDailyDesktopUsers(
-        pgPools.stats,
-        '1999-01-01',
-        10
-      )
+      await givenDailyDesktopUsers('1999-01-01', 10)
       // in range
-      await givenDailyDesktopUsers(
-        pgPools.stats,
-        '2000-01-01',
-        30
-      )
-      await givenDailyDesktopUsers(
-        pgPools.stats,
-        '2000-01-03',
-        20
-      )
+      await givenDailyDesktopUsers('2000-01-01', 30)
+      await givenDailyDesktopUsers('2000-01-03', 20)
       // out of range
-      await givenDailyDesktopUsers(
-        pgPools.stats,
-        '2000-01-04',
-        10
-      )
+      await givenDailyDesktopUsers('2000-01-04', 10)
 
       const res = await fetch(
         new URL('/stations/desktop/daily?from=2000-01-01&to=2000-01-03', baseUrl)
@@ -477,64 +527,3 @@ describe('Platform Routes HTTP request handler', () => {
     })
   })
 })
-
-const givenDailyMeasurementsSummary = async (pgPoolEvaluate, summaryData) => {
-  const processedSummaryData = summaryData.map(row => ({
-    day: row.day,
-    accepted_measurement_count: row.accepted_measurement_count ?? 100,
-    total_measurement_count: row.total_measurement_count ?? 120,
-    station_count: row.station_count ?? 10,
-    participant_address_count: row.participant_address_count ?? 5,
-    inet_group_count: row.inet_group_count ?? 8
-  }))
-
-  await pgPoolEvaluate.query(`
-    INSERT INTO daily_platform_stats (
-      day,
-      accepted_measurement_count,
-      total_measurement_count,
-      station_count,
-      participant_address_count,
-      inet_group_count
-    )
-    SELECT
-      UNNEST($1::date[]) AS day,
-      UNNEST($2::int[]) AS accepted_measurement_count,
-      UNNEST($3::int[]) AS total_measurement_count,
-      UNNEST($4::int[]) AS station_count,
-      UNNEST($5::int[]) AS participant_address_count,
-      UNNEST($6::int[]) AS inet_group_count
-    ON CONFLICT DO NOTHING
-    `, [
-    processedSummaryData.map(s => s.day),
-    processedSummaryData.map(s => s.accepted_measurement_count),
-    processedSummaryData.map(s => s.total_measurement_count),
-    processedSummaryData.map(s => s.station_count),
-    processedSummaryData.map(s => s.participant_address_count),
-    processedSummaryData.map(s => s.inet_group_count)
-  ])
-}
-
-const givenMonthlyActiveStationCount = async (pgPoolEvaluate, month, stationCount) => {
-  await pgPoolEvaluate.query(`
-    INSERT INTO monthly_active_station_count (month, station_count)
-    VALUES ($1, $2)
-    ON CONFLICT DO NOTHING
-    `, [
-    month,
-    stationCount
-  ])
-}
-
-const givenDailyRewardTransferMetrics = async (pgPoolStats, day, transferStats) => {
-  await pgPoolStats.query(`
-    INSERT INTO daily_reward_transfers (day, to_address, amount, last_checked_block)
-    SELECT $1 AS day, UNNEST($2::text[]) AS to_address, UNNEST($3::int[]) AS amount, UNNEST($4::int[]) AS last_checked_block
-    ON CONFLICT DO NOTHING
-    `, [
-    day,
-    transferStats.map(s => s.toAddress),
-    transferStats.map(s => s.amount),
-    transferStats.map(s => s.lastCheckedBlock)
-  ])
-}

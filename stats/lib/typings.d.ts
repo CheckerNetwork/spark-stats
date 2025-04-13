@@ -1,9 +1,15 @@
 import { FastifyRequest } from 'fastify'
+import { PostgresDb } from '@fastify/postgres'
+import { Queryable } from '@filecoin-station/spark-stats-db'
+
+
+export type FastifyPg = PostgresDb & Record<string, PostgresDb>
 
 export interface DateRangeFilter {
   from: string;
   to: string;
 }
+
 
 export type RequestWithFilter = FastifyRequest<{
   Querystring: { from: string, to: string }

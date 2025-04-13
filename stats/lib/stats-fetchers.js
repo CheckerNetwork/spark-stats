@@ -1,8 +1,13 @@
-/** @typedef {import('@filecoin-station/spark-stats-db').PgPools} PgPools */
 /**
- * @param {PgPools} pgPools
- * @param {import('./typings.js').DateRangeFilter & {nonZero?: 'true'}} filter
+   @typedef {import('@filecoin-station/spark-stats-db').Queryable} Queryable
+   @typedef {import('./typings.js').FastifyPg} FastifyPg
  */
+
+/**
+ * @param {import('./typings.js').DateRangeFilter & {nonZero?: 'true'}} filter
+ * @param {FastifyPg} pgPools
+ */
+
 export const fetchRetrievalSuccessRate = async (pgPools, filter) => {
   // Fetch the "day" (DATE) as a string (TEXT) to prevent node-postgres for converting it into
   // a JavaScript Date with a timezone, as that could change the date one day forward or back.
@@ -36,7 +41,7 @@ export const fetchRetrievalSuccessRate = async (pgPools, filter) => {
 }
 
 /**
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyDealStats = async (pgPools, filter) => {
@@ -63,7 +68,7 @@ export const fetchDailyDealStats = async (pgPools, filter) => {
 }
 
 /**
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDealSummary = async (pgPools, filter) => {
@@ -115,7 +120,7 @@ export const fetchMonthlyParticipants = async (pgPools, filter) => {
 }
 
 /**
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchParticipantChangeRates = async (pgPools, filter) => {
@@ -183,7 +188,7 @@ export const fetchParticipantChangeRates = async (pgPools, filter) => {
 }
 
 /**
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
@@ -197,7 +202,7 @@ export const fetchParticipantScheduledRewards = async (pgPools, { from, to }, ad
 }
 
 /**
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
@@ -212,7 +217,7 @@ export const fetchParticipantRewardTransfers = async (pgPools, { from, to }, add
 
 /**
  * Fetches the retrieval stats summary for all miners for given date range.
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchMinersRSRSummary = async (pgPools, filter) => {
@@ -246,7 +251,7 @@ export const fetchMinersRSRSummary = async (pgPools, filter) => {
 
 /**
  * Fetches the retrieval stats summary for a single miner for given date range.
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} minerId
  */
@@ -302,7 +307,7 @@ export const fetchDailyRetrievalResultCodes = async (pgPools, filter) => {
 
 /**
  * Fetches daily global retrieval time statistics
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchDailyRetrievalTimings = async (pgPools, filter) => {
@@ -323,7 +328,7 @@ export const fetchDailyRetrievalTimings = async (pgPools, filter) => {
 
 /**
  * Fetches per miner daily retrieval time statistics
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ * @param {{stats: Queryable, evaluate: Queryable}} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} minerId
  */
@@ -347,9 +352,10 @@ export const fetchDailyMinerRetrievalTimings = async (pgPools, { from, to }, min
 
 /**
  * Fetches retrieval time statistics summary for all miners for given date range.
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
+ /**
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
- */
+*/
 export const fetchMinersTimingsSummary = async (pgPools, { from, to }) => {
   const { rows } = await pgPools.evaluate.query(`
     SELECT
@@ -367,10 +373,10 @@ export const fetchMinersTimingsSummary = async (pgPools, { from, to }) => {
 }
 
 /**
- * Fetches the retrieval stats summary for all clients for given date range.
- * @param {PgPools} pgPools
- * @param {import('./typings.js').DateRangeFilter} filter
- */
+* Fetches the retrieval stats summary for all clients for given date range.
+* @param {FastifyPg} pgPools
+* @param {import('./typings.js').DateRangeFilter} filter
+*/
 export const fetchClientsRSRSummary = async (pgPools, filter) => {
   const { rows } = await pgPools.evaluate.query(`
     SELECT 
@@ -400,7 +406,7 @@ export const fetchClientsRSRSummary = async (pgPools, filter) => {
 
 /**
  * Fetches the retrieval stats summary for a single client for given date range.
- * @param {PgPools} pgPools
+ * @param {{stats: Queryable, evaluate: Queryable}} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} clientId
  */
@@ -434,7 +440,7 @@ export const fetchDailyClientRSRSummary = async (pgPools, { from, to }, clientId
 
 /**
  * Fetches the retrieval stats summary for all allocators for given date range.
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  */
 export const fetchAllocatorsRSRSummary = async (pgPools, filter) => {
@@ -466,7 +472,7 @@ export const fetchAllocatorsRSRSummary = async (pgPools, filter) => {
 
 /**
  * Fetches the retrieval stats summary for a single allocator for given date range.
- * @param {PgPools} pgPools
+ * @param {FastifyPg} pgPools
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} allocatorId
  */

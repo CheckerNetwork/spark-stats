@@ -25,64 +25,65 @@ import {
 /** @typedef {import('./typings.js').RequestWithFilterAndMinerId} RequestWithFilterAndMinerId */
 /** @typedef {import('./typings.js').RequestWithFilterAndClientId} RequestWithFilterAndClientId */
 
-export const addRoutes = (app, pgPools, SPARK_API_BASE_URL) => {
+export const addRoutes = (app, SPARK_API_BASE_URL) => {
   app.register(async app => {
     app.addHook('preHandler', filterPreHandlerHook)
     app.addHook('onSend', filterOnSendHook)
 
     app.get('/deals/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchDailyDealStats(pgPools, request.filter))
+      reply.send(await fetchDailyDealStats(request.server.pg, request.filter))
     })
+
     app.get('/deals/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchDealSummary(pgPools, request.filter))
+      reply.send(await fetchDealSummary(request.server.pg, request.filter))
     })
     app.get('/retrieval-success-rate', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchRetrievalSuccessRate(pgPools, request.filter))
+      reply.send(await fetchRetrievalSuccessRate(request.server.pg, request.filter))
     })
     app.get('/participants/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchDailyParticipants(pgPools, request.filter))
+      reply.send(await fetchDailyParticipants(request.server.pg, request.filter))
     })
     app.get('/participants/monthly', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchMonthlyParticipants(pgPools, request.filter))
+      reply.send(await fetchMonthlyParticipants(request.server.pg, request.filter))
     })
     app.get('/participants/change-rates', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchParticipantChangeRates(pgPools, request.filter))
+      reply.send(await fetchParticipantChangeRates(request.server.pg, request.filter))
     })
     app.get('/participant/:address/scheduled-rewards', async (/** @type {RequestWithFilterAndAddress} */ request, reply) => {
-      reply.send(await fetchParticipantScheduledRewards(pgPools, request.filter, request.params.address))
+      reply.send(await fetchParticipantScheduledRewards(request.server.pg, request.filter, request.params.address))
     })
     app.get('/participant/:address/reward-transfers', async (/** @type {RequestWithFilterAndAddress} */ request, reply) => {
-      reply.send(await fetchParticipantRewardTransfers(pgPools, request.filter, request.params.address))
+      reply.send(await fetchParticipantRewardTransfers(request.server.pg, request.filter, request.params.address))
     })
     app.get('/miners/retrieval-success-rate/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchMinersRSRSummary(pgPools, request.filter))
+      reply.send(await fetchMinersRSRSummary(request.server.pg, request.filter))
     })
     app.get('/miners/retrieval-timings/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchMinersTimingsSummary(pgPools, request.filter))
+      reply.send(await fetchMinersTimingsSummary(request.server.pg, request.filter))
     })
     app.get('/retrieval-result-codes/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchDailyRetrievalResultCodes(pgPools, request.filter))
+      reply.send(await fetchDailyRetrievalResultCodes(request.server.pg, request.filter))
     })
     app.get('/retrieval-timings/daily', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchDailyRetrievalTimings(pgPools, request.filter))
+      reply.send(await fetchDailyRetrievalTimings(request.server.pg, request.filter))
     })
     app.get('/miner/:minerId/retrieval-timings/summary', async (/** @type {RequestWithFilterAndMinerId} */ request, reply) => {
-      reply.send(await fetchDailyMinerRetrievalTimings(pgPools, request.filter, request.params.minerId))
+      reply.send(await fetchDailyMinerRetrievalTimings(request.server.pg, request.filter, request.params.minerId))
     })
     app.get('/miner/:minerId/retrieval-success-rate/summary', async (/** @type {RequestWithFilterAndMinerId} */ request, reply) => {
-      reply.send(await fetchDailyMinerRSRSummary(pgPools, request.filter, request.params.minerId))
+      reply.send(await fetchDailyMinerRSRSummary(request.server.pg, request.filter, request.params.minerId))
     })
     app.get('/clients/retrieval-success-rate/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchClientsRSRSummary(pgPools, request.filter))
+      reply.send(await fetchClientsRSRSummary(request.server.pg, request.filter))
     })
     app.get('/client/:clientId/retrieval-success-rate/summary', async (/** @type {RequestWithFilterAndClientId} */ request, reply) => {
-      reply.send(await fetchDailyClientRSRSummary(pgPools, request.filter, request.params.clientId))
+      reply.send(await fetchDailyClientRSRSummary(request.server.pg, request.filter, request.params.clientId))
     })
     app.get('/allocators/retrieval-success-rate/summary', async (/** @type {RequestWithFilter} */ request, reply) => {
-      reply.send(await fetchAllocatorsRSRSummary(pgPools, request.filter))
+      reply.send(await fetchAllocatorsRSRSummary(request.server.pg, request.filter))
     })
     app.get('/allocator/:allocatorId/retrieval-success-rate/summary', async (/** @type {RequestWithFilterAndClientId} */ request, reply) => {
-      reply.send(await fetchDailyAllocatorRSRSummary(pgPools, request.filter, request.params.allocatorId))
+      reply.send(await fetchDailyAllocatorRSRSummary(request.server.pg, request.filter, request.params.allocatorId))
     })
   })
 
