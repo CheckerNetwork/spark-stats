@@ -4,7 +4,7 @@ import { getPgPools } from '@filecoin-station/spark-stats-db'
 import { assertResponseStatus } from './test-helpers.js'
 import { createApp } from '../lib/app.js'
 import { getLocalDayAsISOString, today, yesterday } from '../lib/request-helpers.js'
-import { givenDailyParticipants, givenDailyDesktopUsers } from '@filecoin-station/spark-stats-db/test-helpers.js'
+import { givenDailyParticipants, givenDailyDesktopUsers, mapParticipantsToIds } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
 describe('Platform Routes HTTP request handler', () => {
   /** @type {import('@filecoin-station/spark-stats-db').PgPools} */
@@ -212,17 +212,6 @@ describe('Platform Routes HTTP request handler', () => {
     await pgPools.stats.query('DELETE FROM daily_reward_transfers')
     await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
     await pgPools.stats.query('DELETE FROM participants')
-
-    await pgPools.stats.query(`
-      INSERT INTO participants (id, participant_address)
-      VALUES
-        (1, 'to1'),
-        (2, 'to2'),
-        (3, 'to3'),
-        (4, 'address1'),
-        (5, 'address2'),
-        (6, 'address3')
-    `)
   })
 
   describe('GET /transfers/daily', () => {
@@ -295,33 +284,18 @@ describe('Platform Routes HTTP request handler', () => {
     await pgPools.stats.query('DELETE FROM daily_reward_transfers')
     await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
     await pgPools.stats.query('DELETE FROM participants')
-
-    await pgPools.stats.query(`
-      INSERT INTO participants (id, participant_address)
-      VALUES
-        (1, 'to1'),
-        (2, 'to2'),
-        (3, 'to3'),
-        (4, 'address1'),
-        (5, 'address2'),
-        (6, 'address3')
-    `)
   })
 
   describe('GET /participants/top-earning', () => {
     const oneWeekAgo = getLocalDayAsISOString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
 
     const setupScheduledRewardsData = async () => {
-      await pgPools.stats.query(`
-        INSERT INTO daily_scheduled_rewards (day, participant_id, scheduled_rewards)
-    VALUES
-      ('${yesterday()}', 4, 10),
-      ('${yesterday()}', 5, 20),
-      ('${yesterday()}', 6, 30),
-      ('${today()}', 4, 15),
-      ('${today()}', 5, 25),
-      ('${today()}', 6, 35)
-  `)
+      await givenDailyScheduledRewards(pgPools.stats, yesterday(), 'address1', 10)
+      await givenDailyScheduledRewards(pgPools.stats, yesterday(), 'address2', 20)
+      await givenDailyScheduledRewards(pgPools.stats, yesterday(), 'address3', 30)
+      await givenDailyScheduledRewards(pgPools.stats, today(), 'address1', 15)
+      await givenDailyScheduledRewards(pgPools.stats, today(), 'address2', 25)
+      await givenDailyScheduledRewards(pgPools.stats, today(), 'address3', 35)
     }
     it('returns top earning participants for the given date range', async () => {
       // First two dates should be ignored
@@ -561,27 +535,25 @@ const givenMonthlyActiveStationCount = async (pgPoolEvaluate, month, stationCoun
 }
 
 const givenDailyRewardTransferMetrics = async (pgPoolStats, day, transferStats) => {
+  const addresses = transferStats.map(t => t.toAddress)
+  const addressMap = await mapParticipantsToIds(pgPoolStats, new Set(addresses))
+
   for (const transfer of transferStats) {
-    const participantResult = await pgPoolStats.query(
-      'SELECT id FROM participants WHERE participant_address = $1',
-      [transfer.toAddress]
-    )
-
-    if (participantResult.rows.length === 0) {
-      throw new Error(`Participant address ${transfer.toAddress} not found`)
-    }
-
-    const participantId = participantResult.rows[0].id
+    const id = addressMap.get(transfer.toAddress)
 
     await pgPoolStats.query(`
       INSERT INTO daily_reward_transfers (day, to_address_id, amount, last_checked_block)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT DO NOTHING
-    `, [
-      day,
-      participantId,
-      transfer.amount,
-      transfer.lastCheckedBlock
-    ])
+    `, [day, id, transfer.amount, transfer.lastCheckedBlock])
   }
+}
+const givenDailyScheduledRewards = async (pgClient, day, address, rewardAmount) => {
+  const addressMap = await mapParticipantsToIds(pgClient, new Set([address]))
+  const id = addressMap.get(address)
+
+  await pgClient.query(`
+    INSERT INTO daily_scheduled_rewards (day, participant_id, scheduled_rewards)
+    VALUES ($1, $2, $3)
+  `, [day, id, rewardAmount])
 }

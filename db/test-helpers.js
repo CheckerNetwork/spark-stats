@@ -39,8 +39,9 @@ export const givenDailyDesktopUsers = async (pgPool, day, count) => {
     [day, count],
   );
 };
+
 // Map addresses and insert into daily_scheduled_rewards
-export const givenDailyScheduledRewards = async (pgClient, day, rewardsMap) => {
+export const givenScheduledRewards = async (pgClient, day, rewardsMap) => {
   const addresses = Array.from(rewardsMap.keys());
   const addressMap = await mapParticipantsToIds(pgClient, new Set(addresses));
 

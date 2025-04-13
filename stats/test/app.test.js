@@ -1,11 +1,9 @@
 import assert from "node:assert";
 import { getPgPools } from "@filecoin-station/spark-stats-db";
-import { givenDailyParticipants } from "@filecoin-station/spark-stats-db/test-helpers.js";
-import {
-  givenDailyScheduledRewards,
-  givenRewardTransfer,
-} from "@filecoin-station/spark-stats-db/test-helpers.js";
-
+import { 
+  givenDailyParticipants,
+  givenScheduledRewards,
+  givenRewardTransfer, } from "@filecoin-station/spark-stats-db/test-helpers.js";
 import { assertResponseStatus } from "./test-helpers.js";
 import { createApp } from "../lib/app.js";
 import { today } from "../lib/request-helpers.js";
@@ -673,7 +671,7 @@ describe("HTTP request handler", () => {
 
   describe("GET /participant/:address/scheduled-rewards", () => {
     it("returns daily scheduled rewards for the given date range", async () => {
-      await givenDailyScheduledRewards(
+      await givenScheduledRewards(
         pgPools.stats,
         "2024-01-11",
         new Map([["0x20", "1"]]),
