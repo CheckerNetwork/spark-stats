@@ -1,4 +1,4 @@
-import { mapParticipantsToIds } from "@filecoin-station/spark-evaluate/lib/platform-stats.js";
+import { mapParticipantsToIds } from '@filecoin-station/spark-evaluate/lib/platform-stats.js'
 
 /**
  * Populate daily participants in spark_evaluate database
@@ -10,9 +10,9 @@ import { mapParticipantsToIds } from "@filecoin-station/spark-evaluate/lib/platf
 export const givenDailyParticipants = async (
   pgPool,
   day,
-  participantAddresses,
+  participantAddresses
 ) => {
-  const ids = await mapParticipantsToIds(pgPool, new Set(participantAddresses));
+  const ids = await mapParticipantsToIds(pgPool, new Set(participantAddresses))
 
   await pgPool.query(
     `
@@ -20,9 +20,9 @@ export const givenDailyParticipants = async (
     SELECT $1 as day, UNNEST($2::INT[]) AS participant_id
     ON CONFLICT DO NOTHING
   `,
-    [day, Array.from(ids.values())],
-  );
-};
+    [day, Array.from(ids.values())]
+  )
+}
 
 /**
  * @param {import('./typings.js').Queryable} pgPool
@@ -36,26 +36,26 @@ export const givenDailyDesktopUsers = async (pgPool, day, count) => {
     VALUES ($1, $2)
     ON CONFLICT DO NOTHING
   `,
-    [day, count],
-  );
-};
+    [day, count]
+  )
+}
 
 // Map addresses and insert into daily_scheduled_rewards
 export const givenScheduledRewards = async (pgClient, day, rewardsMap) => {
-  const addresses = Array.from(rewardsMap.keys());
-  const addressMap = await mapParticipantsToIds(pgClient, new Set(addresses));
+  const addresses = Array.from(rewardsMap.keys())
+  const addressMap = await mapParticipantsToIds(pgClient, new Set(addresses))
 
   for (const [address, rewards] of rewardsMap.entries()) {
-    const id = addressMap.get(address);
+    const id = addressMap.get(address)
     await pgClient.query(
       `
       INSERT INTO daily_scheduled_rewards (day, participant_id, scheduled_rewards)
       VALUES ($1, $2, $3)
     `,
-      [day, id, rewards],
-    );
+      [day, id, rewards]
+    )
   }
-};
+}
 
 // Map address and insert into daily_reward_transfers
 export const givenRewardTransfer = async (
@@ -63,17 +63,16 @@ export const givenRewardTransfer = async (
   day,
   address,
   amount,
-  lastCheckedBlock = 0,
+  lastCheckedBlock = 0
 ) => {
-  const addressMap = await mapParticipantsToIds(pgClient, new Set([address]));
-  const id = addressMap.get(address);
+  const addressMap = await mapParticipantsToIds(pgClient, new Set([address]))
+  const id = addressMap.get(address)
 
   await pgClient.query(
     `
     INSERT INTO daily_reward_transfers (day, to_address_id, amount, last_checked_block)
     VALUES ($1, $2, $3, $4)
   `,
-    [day, id, amount, lastCheckedBlock],
-  );
-};
-export { mapParticipantsToIds } from "../observer/lib/map-participants-to-ids.js";
+    [day, id, amount, lastCheckedBlock]
+  )
+}
