@@ -187,12 +187,15 @@ export const fetchParticipantChangeRates = async (pgPools, filter) => {
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
-export const fetchParticipantScheduledRewards = async (pgPools, { from, to }, address) => {
+export const fetchParticipantScheduledRewards = async (pgPools, filter, address) => {
   const { rows } = await pgPools.stats.query(`
-    SELECT day::text, scheduled_rewards
-    FROM daily_scheduled_rewards
-    WHERE participant_address = $1 AND day >= $2 AND day <= $3
-  `, [address, from, to])
+    SELECT dsr.day::TEXT, dsr.scheduled_rewards
+    FROM daily_scheduled_rewards dsr
+    JOIN participants p ON dsr.participant_id = p.id
+    WHERE p.participant_address = $1
+      AND dsr.day BETWEEN $2 AND $3
+    ORDER BY dsr.day
+  `, [address, filter.from, filter.to])
   return rows
 }
 
@@ -201,12 +204,15 @@ export const fetchParticipantScheduledRewards = async (pgPools, { from, to }, ad
  * @param {import('./typings.js').DateRangeFilter} filter
  * @param {string} address
  */
-export const fetchParticipantRewardTransfers = async (pgPools, { from, to }, address) => {
+export const fetchParticipantRewardTransfers = async (pgPools, filter, address) => {
   const { rows } = await pgPools.stats.query(`
-    SELECT day::TEXT, amount
-    FROM daily_reward_transfers
-    WHERE to_address = $1 AND day >= $2 AND day <= $3
-  `, [address, from, to])
+    SELECT drt.day::TEXT, drt.amount
+    FROM daily_reward_transfers drt
+    JOIN participants p ON drt.to_address_id = p.id
+    WHERE p.participant_address = $1
+      AND drt.day BETWEEN $2 AND $3
+    ORDER BY drt.day
+  `, [address, filter.from, filter.to])
   return rows
 }
 
