@@ -24,6 +24,7 @@ jobs:
           - '@filecoin-station/spark-impact-evaluator'
           - '@fastify/'
           - fastify
+          - node
     steps:
       - name: Dependabot metadata
         id: metadata
