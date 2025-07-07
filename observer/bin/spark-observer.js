@@ -11,7 +11,6 @@ import { RPC_URL, rpcHeaders } from '../lib/config.js'
 import { getPgPools } from '@filecoin-station/spark-stats-db'
 import {
   observeTransferEvents,
-  observeScheduledRewards,
   observeRetrievalResultCodes,
   observeYesterdayDesktopUsers
 } from '../lib/observer.js'
@@ -62,11 +61,6 @@ await Promise.all([
     'Transfer events',
     () => observeTransferEvents(pgPools.stats, ieContract, provider),
     ONE_HOUR
-  ),
-  loop(
-    'Scheduled rewards',
-    () => observeScheduledRewards(pgPools, ieContract),
-    24 * ONE_HOUR
   ),
   loop(
     'Retrieval result codes',

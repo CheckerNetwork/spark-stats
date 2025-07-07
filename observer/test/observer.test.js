@@ -1,9 +1,8 @@
 import assert from 'node:assert'
 import { beforeEach, describe, it } from 'mocha'
 import { getPgPools } from '@filecoin-station/spark-stats-db'
-import { givenDailyParticipants } from '@filecoin-station/spark-stats-db/test-helpers.js'
 
-import { observeTransferEvents, observeScheduledRewards, observeRetrievalResultCodes, observeYesterdayDesktopUsers } from '../lib/observer.js'
+import { observeTransferEvents, observeRetrievalResultCodes, observeYesterdayDesktopUsers } from '../lib/observer.js'
 
 describe('observer', () => {
   let pgPools
@@ -130,59 +129,6 @@ describe('observer', () => {
       assert.deepStrictEqual(rows, [
         { day: today(), to_address: 'address1', amount: '250', last_checked_block: 2500 }
       ])
-    })
-  })
-
-  describe('observeScheduledRewards', () => {
-    beforeEach(async () => {
-      await pgPools.evaluate.query('DELETE FROM recent_station_details')
-      await pgPools.evaluate.query('DELETE FROM recent_participant_subnets')
-      await pgPools.evaluate.query('DELETE FROM daily_participants')
-      await pgPools.evaluate.query('DELETE FROM participants')
-      await pgPools.stats.query('DELETE FROM daily_scheduled_rewards')
-      await givenDailyParticipants(pgPools.evaluate, today(), ['0xCURRENT'])
-      await givenDailyParticipants(pgPools.evaluate, '2000-01-01', ['0xOLD'])
-    })
-
-    it('observes scheduled rewards', async () => {
-      /** @type {any} */
-      const ieContract = {
-        rewardsScheduledFor: async (address) => {
-          if (address === '0xCURRENT') {
-            return 100n
-          } else {
-            throw new Error('Should never be called')
-          }
-        }
-      }
-      const fetchMock = async url => {
-        assert.strictEqual(url, 'https://spark-rewards.fly.dev/scheduled-rewards/0xCURRENT')
-        return new Response(JSON.stringify('10'))
-      }
-      await observeScheduledRewards(pgPools, ieContract, fetchMock)
-      const { rows } = await pgPools.stats.query(`
-        SELECT participant_address, scheduled_rewards
-        FROM daily_scheduled_rewards
-      `)
-      assert.deepStrictEqual(rows, [{
-        participant_address: '0xCURRENT',
-        scheduled_rewards: '110'
-      }])
-    })
-    it('updates scheduled rewards', async () => {
-      /** @type {any} */
-      const ieContract = {
-        rewardsScheduledFor: async () => 200n
-      }
-      await observeScheduledRewards(pgPools, ieContract)
-      const { rows } = await pgPools.stats.query(`
-        SELECT participant_address, scheduled_rewards
-        FROM daily_scheduled_rewards
-      `)
-      assert.deepStrictEqual(rows, [{
-        participant_address: '0xCURRENT',
-        scheduled_rewards: '200'
-      }])
     })
   })
 
