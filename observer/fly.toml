@@ -2,7 +2,6 @@ app = "spark-observer"
 primary_region = "cdg"
 
 [env]
-  SENTRY_ENVIRONMENT = "production"
   NPM_CONFIG_WORKSPACE = "observer"
 
 [deploy]

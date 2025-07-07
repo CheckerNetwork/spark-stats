@@ -13,10 +13,6 @@ updates:
     reviewers:
       - "bajtos"
       - "juliangruber"
-    groups:
-      sentry:
-        patterns:
-          - "@sentry/*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

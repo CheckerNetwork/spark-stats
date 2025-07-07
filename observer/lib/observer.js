@@ -1,5 +1,4 @@
 import { updateDailyTransferStats } from './platform-stats.js'
-import * as Sentry from '@sentry/node'
 import assert from 'node:assert'
 
 /**
@@ -70,7 +69,6 @@ export const observeScheduledRewards = async (pgPools, ieContract, fetch = globa
     try {
       scheduledRewards = await getScheduledRewards(address, ieContract, fetch)
     } catch (err) {
-      Sentry.captureException(err)
       console.error(
         'Error querying scheduled rewards for',
         address,

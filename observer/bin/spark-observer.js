@@ -1,7 +1,5 @@
-import '../lib/instrument.js'
 import * as SparkImpactEvaluator from '@filecoin-station/spark-impact-evaluator'
 import { ethers } from 'ethers'
-import * as Sentry from '@sentry/node'
 import timers from 'node:timers/promises'
 import { createInflux } from '../lib/telemetry.js'
 import assert from 'node:assert/strict'
@@ -41,7 +39,6 @@ const loop = async (name, fn, interval) => {
       await fn()
     } catch (e) {
       console.error(e)
-      Sentry.captureException(e)
     }
     const dt = Date.now() - start
     console.log(`Loop "${name}" took ${dt}ms`)

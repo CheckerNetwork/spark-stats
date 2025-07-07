@@ -1,4 +1,3 @@
-import '../lib/instrument.js'
 import { createApp } from '../lib/app.js'
 import { getPgPools } from '@filecoin-station/spark-stats-db'
 
