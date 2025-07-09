@@ -1,6 +1,4 @@
 import { updateDailyTransferStats } from './platform-stats.js'
-import * as Sentry from '@sentry/node'
-import assert from 'node:assert'
 
 /**
  * Observe the transfer events on the Filecoin blockchain
@@ -34,59 +32,6 @@ export const observeTransferEvents = async (pgPoolStats, ieContract, provider) =
   }
 
   return events.length
-}
-
-const getScheduledRewards = async (address, ieContract, fetch) => {
-  const [fromContract, fromSparkRewards] = await Promise.all([
-    ieContract.rewardsScheduledFor(address),
-    (async () => {
-      const res = await fetch(
-        `https://spark-rewards.fly.dev/scheduled-rewards/${address}`
-      )
-      const json = await res.json()
-      assert(typeof json === 'string')
-      return BigInt(json)
-    })()
-  ])
-  return fromContract + fromSparkRewards
-}
-
-/**
- * Observe scheduled rewards from blockchain and `spark-rewards`
- * @param {import('@filecoin-station/spark-stats-db').PgPools} pgPools
- * @param {import('ethers').Contract} ieContract
- * @param {typeof globalThis.fetch} [fetch]
- */
-export const observeScheduledRewards = async (pgPools, ieContract, fetch = globalThis.fetch) => {
-  console.log('Querying scheduled rewards from impact evaluator')
-  const { rows } = await pgPools.evaluate.query(`
-    SELECT participant_address
-    FROM participants p
-    JOIN daily_participants d ON p.id = d.participant_id
-    WHERE d.day >= now() - interval '3 days'
-  `)
-  for (const { participant_address: address } of rows) {
-    let scheduledRewards
-    try {
-      scheduledRewards = await getScheduledRewards(address, ieContract, fetch)
-    } catch (err) {
-      Sentry.captureException(err)
-      console.error(
-        'Error querying scheduled rewards for',
-        address,
-        { cause: err }
-      )
-      continue
-    }
-    console.log('Scheduled rewards for', address, scheduledRewards)
-    await pgPools.stats.query(`
-      INSERT INTO daily_scheduled_rewards
-      (day, participant_address, scheduled_rewards)
-      VALUES (now(), $1, $2)
-      ON CONFLICT (day, participant_address) DO UPDATE SET
-      scheduled_rewards = EXCLUDED.scheduled_rewards
-    `, [address, scheduledRewards])
-  }
 }
 
 /**
