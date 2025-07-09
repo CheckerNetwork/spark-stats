@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/node'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import urlData from '@fastify/url-data'
@@ -22,7 +21,6 @@ export const createApp = ({
   logger
 }) => {
   const app = Fastify({ logger })
-  Sentry.setupFastifyErrorHandler(app)
 
   app.register(cors, {
     origin: [
