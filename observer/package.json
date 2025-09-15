@@ -19,7 +19,7 @@
     "@filecoin-station/spark-stats-db": "^1.0.0",
     "@influxdata/influxdb-client": "^1.35.0",
     "@types/slug": "^5.0.9",
-    "debug": "^4.4.1",
+    "debug": "^4.4.3",
     "ethers": "^6.15.0",
     "pg": "^8.16.3",
     "slug": "^11.0.0"
