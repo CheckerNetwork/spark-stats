@@ -28,7 +28,7 @@ jobs:
       NPM_CONFIG_WORKSPACE: stats
     steps:
       - run: psql "${DATABASE_URL}" -c "CREATE DATABASE spark_evaluate"
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -58,7 +58,7 @@ jobs:
       NPM_CONFIG_WORKSPACE: observer
     steps:
       - run: psql "${DATABASE_URL}" -c "CREATE DATABASE spark_evaluate"
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -69,7 +69,7 @@ jobs:
   lint-all:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -99,7 +99,7 @@ jobs:
       NPM_CONFIG_WORKSPACE: observer
     steps:
       - run: psql "${DATABASE_URL}" -c "CREATE DATABASE spark_evaluate"
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -118,7 +118,7 @@ jobs:
     env:
       REGISTRY: ghcr.io
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: docker/login-action@v3
         with:
@@ -138,7 +138,7 @@ jobs:
     needs: [build-stats, build-observer, docker-build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only -c stats/fly.toml
         env:
@@ -168,7 +168,7 @@ jobs:
     needs: [build-stats, build-observer, docker-build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only -c observer/fly.toml
         env:
