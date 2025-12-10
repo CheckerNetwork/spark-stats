@@ -14,7 +14,7 @@
     "standard": "^17.1.2"
   },
   "dependencies": {
-    "@fastify/cors": "^11.1.0",
+    "@fastify/cors": "^11.2.0",
     "@fastify/url-data": "^6.0.3",
     "@filecoin-station/spark-stats-db": "^1.0.0",
     "debug": "^4.4.3",
